@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import RehabRunnerGame from "@/components/RehabRunnerGame";
 
 type PoseLandmarkerType = import("@mediapipe/tasks-vision").PoseLandmarker;
 
@@ -36,6 +37,7 @@ export default function SquatSessionPage() {
   const [squatPhase, setSquatPhase] = useState<SquatPhase>("waiting");
   const [reps, setReps] = useState(0);
   const [score, setScore] = useState(0);
+  const [jumpSignal, setJumpSignal] = useState(0);
   const [feedback, setFeedback] = useState(
     "Step into frame and stand naturally."
   );
@@ -199,6 +201,8 @@ export default function SquatSessionPage() {
         });
 
         setScore((previousScore) => previousScore + 100);
+
+        setJumpSignal((previous) => previous + 1);
 
         reachedBottomRef.current = false;
 
@@ -552,6 +556,14 @@ export default function SquatSessionPage() {
             Position yourself so your full body is visible.
             RehabVerse will track your movement in real time.
           </p>
+        </div>
+
+        <div className="mb-8">
+         <RehabRunnerGame
+           jumpSignal={jumpSignal}
+           reps={reps}
+           bodyReady={bodyDetected && kneeAngle !== null}
+         />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
