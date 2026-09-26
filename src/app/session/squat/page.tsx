@@ -445,7 +445,7 @@ export default function SquatSessionPage() {
       try {
         const result = poseLandmarker.detectForVideo(
           video,
-          performance.now()
+          video.currentTime * 1000
         );
 
         if (
@@ -532,10 +532,10 @@ export default function SquatSessionPage() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 flex items-center justify-between">
           <Link
-            href="/exercises"
+            href="/explore"
             className="text-sm text-slate-400 transition hover:text-white"
           >
-            ← Back to Exercises
+            ← Back to Explore
           </Link>
 
           <div className="rounded-full border border-indigo-400/30 bg-indigo-400/10 px-4 py-2 text-sm text-indigo-200">
