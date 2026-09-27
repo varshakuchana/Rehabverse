@@ -1,64 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-
-type HEPExercise = {
-  name: string;
-  sets: number | null;
-  repetitions: number | null;
-  holdSeconds: number | null;
-  instructions: string | null;
-  notes: string | null;
-};
-
-type ConfirmedPlan = {
-  id: string;
-  sourceFileName: string;
-  uploadedAt: string;
-  exercises: HEPExercise[];
-  frequency?: {
-    sessionsPerWeek: number | null;
-    specifiedDays: string[] | null;
-    rawText: string | null;
-  };
-  confirmed: boolean;
-};
+import { useConfirmedPlan, useLocalDataStatus } from "@/hooks/useProgress";
+import HEPSchedule from "@/components/HEPSchedule";
+import { isPlayableExercise } from "@/lib/scheduleStorage";
 
 export default function QuestPage() {
-  const [plan] = useState<ConfirmedPlan | null>(() => {
-    if (typeof window === "undefined") {
-      return null;
-    }
-
-    const savedPlan = sessionStorage.getItem(
-      "rehabverse-confirmed-hep"
-    );
-
-    if (!savedPlan) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(savedPlan) as ConfirmedPlan;
-    } catch {
-      return null;
-    }
-  });
+  const plan = useConfirmedPlan();
+  const dataStatus = useLocalDataStatus();
 
   if (!plan) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 px-6 text-white">
+      <main id="main-content" tabIndex={-1} className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 px-6 text-white">
         <div className="max-w-lg rounded-3xl border border-white/10 bg-white/[0.04] p-8 text-center">
           <div className="text-4xl">📄</div>
 
           <h1 className="mt-5 text-2xl font-bold">
-            No confirmed HEP yet
+            {dataStatus === "loading" ? "Loading your saved HEP…" : dataStatus === "unavailable" ? "Saved HEP unavailable" : "No confirmed HEP yet"}
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-slate-400">
-            Upload and review your Home Exercise Program before creating
-            your RehabVerse quest.
+            {dataStatus === "unavailable" ? "Allow browser storage to access your saved plan. You can still explore general movement quests." : dataStatus === "loading" ? "Checking this browser for your confirmed plan." : "Upload and review your Home Exercise Program to create your RehabVerse quest."}
           </p>
 
           <Link
@@ -67,25 +29,20 @@ export default function QuestPage() {
           >
             Upload My HEP
           </Link>
+          <div className="mt-5 flex flex-wrap justify-center gap-4 text-sm text-slate-300"><Link href="/">Home</Link><Link href="/explore">Explore</Link><Link href="/progress">Progress</Link></div>
         </div>
       </main>
     );
   }
 
-  const playableExercises = plan.exercises.filter((exercise) => {
-    const name = exercise.name.toLowerCase();
-
-    return (
-      name.includes("squat") ||
-      name.includes("sit to stand") ||
-      name.includes("sit-to-stand")
-    );
-  });
+  const playableExercises = plan.exercises.filter(isPlayableExercise);
+  const firstPlayableIndex = plan.exercises.findIndex(isPlayableExercise);
+  const sessionLink = (index: number) => `/session/squat?source=hep&plan=${encodeURIComponent(plan.id)}&exercise=${index}`;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 px-6 py-8 text-white">
-      <div className="mx-auto max-w-5xl">
-        <nav className="flex items-center justify-between">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 px-6 py-8 text-white">
+      <div className="mx-auto max-w-6xl">
+        <nav className="flex flex-wrap items-center justify-between gap-4">
           <Link
             href="/"
             className="text-sm text-slate-400 transition hover:text-white"
@@ -108,7 +65,7 @@ export default function QuestPage() {
           </p>
 
           <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl">
-            Today&apos;s Quest
+            My HEP Quest
           </h1>
 
           <p className="mx-auto mt-5 max-w-2xl leading-7 text-slate-300">
@@ -117,6 +74,8 @@ export default function QuestPage() {
             become interactive challenges.
           </p>
         </section>
+
+        <HEPSchedule plan={plan} />
 
         <section className="mx-auto mt-10 max-w-4xl">
           <div className="grid gap-4 sm:grid-cols-3">
@@ -194,18 +153,13 @@ export default function QuestPage() {
 
             <div className="mt-6 space-y-3">
               {plan.exercises.map((exercise, index) => {
-                const normalizedName = exercise.name.toLowerCase();
-
-                const isSquat =
-                  normalizedName.includes("squat") ||
-                  normalizedName.includes("sit to stand") ||
-                  normalizedName.includes("sit-to-stand");
+                const isInteractive = isPlayableExercise(exercise);
 
                 return (
                   <article
                     key={`${exercise.name}-${index}`}
                     className={`rounded-2xl border p-5 ${
-                      isSquat
+                      isInteractive
                         ? "border-cyan-400/30 bg-cyan-400/[0.06]"
                         : "border-white/10 bg-white/[0.03]"
                     }`}
@@ -214,7 +168,7 @@ export default function QuestPage() {
                       <div className="flex min-w-0 items-start gap-4">
                         <div
                           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl font-bold ${
-                            isSquat
+                            isInteractive
                               ? "bg-cyan-400/10 text-cyan-300"
                               : "bg-white/5 text-slate-400"
                           }`}
@@ -228,49 +182,49 @@ export default function QuestPage() {
                               {exercise.name}
                             </h3>
 
-                            {isSquat ? (
+                            {isInteractive ? (
                               <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyan-300">
                                 Interactive
                               </span>
                             ) : (
                               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                                Guided
+                                Plan reference
                               </span>
                             )}
                           </div>
 
                           <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400">
-                            {exercise.sets !== null && (
+                            {exercise.sets != null && (
                               <span>{exercise.sets} sets</span>
                             )}
 
-                            {exercise.repetitions !== null && (
+                            {exercise.repetitions != null && (
                               <span>• {exercise.repetitions} reps</span>
                             )}
 
-                            {exercise.holdSeconds !== null && (
+                            {exercise.holdSeconds != null && (
                               <span>• Hold {exercise.holdSeconds}s</span>
                             )}
 
-                            {exercise.sets === null &&
-                              exercise.repetitions === null &&
-                              exercise.holdSeconds === null && (
+                            {exercise.sets == null &&
+                              exercise.repetitions == null &&
+                              exercise.holdSeconds == null && (
                                 <span>Dosage not specified in HEP</span>
                               )}
                           </div>
                         </div>
                       </div>
 
-                      {isSquat ? (
+                      {isInteractive ? (
                         <Link
-                          href="/session/squat"
+                          href={sessionLink(index)}
                           className="shrink-0 rounded-xl bg-cyan-400 px-5 py-2.5 text-center text-sm font-bold text-slate-950 transition hover:bg-cyan-300"
                         >
                           Play →
                         </Link>
                       ) : (
                         <span className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs text-slate-500">
-                          Guided mode
+                          Reference only
                         </span>
                       )}
                     </div>
@@ -300,7 +254,7 @@ export default function QuestPage() {
                 </div>
 
                 <Link
-                  href="/session/squat"
+                  href={sessionLink(firstPlayableIndex)}
                   className="shrink-0 rounded-xl bg-cyan-400 px-6 py-3 text-center font-bold text-slate-950 transition hover:bg-cyan-300"
                 >
                   Begin Quest →
@@ -314,7 +268,7 @@ export default function QuestPage() {
               </p>
 
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Your HEP is still saved for guided sessions. RehabVerse
+                Your HEP is saved for reference. RehabVerse
                 currently has interactive tracking for a limited set of
                 movements in this prototype.
               </p>

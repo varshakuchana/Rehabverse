@@ -1,11 +1,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import { isExtractedHEP } from "@/lib/validateHEP";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
 
 const hepSchema = {
   type: Type.OBJECT,
@@ -124,14 +121,15 @@ export async function POST(request: Request) {
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json(
         {
-          error: "Gemini API key is not configured.",
+          error: "HEP reading is not configured on this demo yet. Please try again later; your current plan is unchanged.",
         },
         {
-          status: 500,
+          status: 503,
         }
       );
     }
 
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const formData = await request.formData();
     const file = formData.get("file");
 
@@ -176,6 +174,8 @@ export async function POST(request: Request) {
         }
       );
     }
+
+    if (file.size === 0) return NextResponse.json({ error: "This file is empty. Choose another PDF or image." }, { status: 400 });
 
     const bytes = await file.arrayBuffer();
     const base64Data = Buffer.from(bytes).toString("base64");
@@ -246,15 +246,17 @@ structured information requested by the response schema.
       throw new Error("Gemini returned an empty response.");
     }
 
-    const extractedHEP = JSON.parse(response.text);
+    const extractedHEP: unknown = JSON.parse(response.text);
+    if (!isExtractedHEP(extractedHEP)) {
+      return NextResponse.json({ error: "The document reader returned incomplete data. Try a clearer PDF or image. Your current plan is unchanged." }, { status: 502 });
+    }
 
     return NextResponse.json({
       success: true,
       fileName: file.name,
       extractedHEP,
     });
-  } catch (error) {
-    console.error("HEP analysis failed:", error);
+  } catch {
 
     return NextResponse.json(
       {

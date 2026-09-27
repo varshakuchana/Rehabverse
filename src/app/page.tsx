@@ -2,10 +2,10 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <main className="min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 text-white">
+    <main id="main-content" tabIndex={-1} className="min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 text-white">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-8">
         {/* Navigation */}
-        <nav className="flex items-center justify-between">
+        <nav className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500 text-xl shadow-lg shadow-indigo-500/20">
               ✦
@@ -19,9 +19,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-slate-300 backdrop-blur">
-            Camera-powered movement
-          </div>
+          <Link href="/progress" className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100">My Progress →</Link>
         </nav>
 
         {/* Hero */}
@@ -105,8 +103,8 @@ export default function Home() {
                 </div>
 
                 <p className="leading-7 text-slate-300">
-                  No exercise plan? Explore built-in general movement
-                  experiences powered by real-time body tracking.
+                  Try camera-tracked or guided movement quests with Nova.
+                  No exercise plan or upload needed.
                 </p>
 
                 <div className="mt-8 flex items-center gap-2 font-semibold text-cyan-300">

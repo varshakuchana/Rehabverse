@@ -1,30 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { confirmPlanReplacement } from "@/lib/scheduleStorage";
+import { useConfirmedPlan, useLocalDataStatus } from "@/hooks/useProgress";
+import HEPSchedule from "@/components/HEPSchedule";
+import PlanUpdateReview from "@/components/PlanUpdateReview";
+import { isExtractedHEP } from "@/lib/validateHEP";
+import type { ExtractedHEP } from "@/types/schedule";
 import { useRouter } from "next/navigation";
-import { ChangeEvent, useRef, useState } from "react";
-
-type ExtractedExercise = {
-  name: string;
-  sets: number | null;
-  repetitions: number | null;
-  holdSeconds: number | null;
-  instructions: string | null;
-  notes: string | null;
-};
-
-type ExtractedFrequency = {
-  sessionsPerWeek: number | null;
-  specifiedDays: string[] | null;
-  rawText: string | null;
-};
-
-type ExtractedHEP = {
-  exercises: ExtractedExercise[];
-  frequency: ExtractedFrequency;
-  generalInstructions: string[];
-  extractionNotes: string[];
-};
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 
 type AnalyzeResponse = {
   success?: boolean;
@@ -34,10 +18,17 @@ type AnalyzeResponse = {
 };
 
 export default function HEPPage() {
-    const router = useRouter();
+  const router = useRouter();
+  const savedPlan = useConfirmedPlan();
+  const dataStatus = useLocalDataStatus();
+  const analysisRef = useRef<AbortController | null>(null);
+  useEffect(() => () => { analysisRef.current?.abort(); analysisRef.current = null; }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [confirmationError, setConfirmationError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const savingRef = useRef(false);
   const [fileError, setFileError] = useState("");
   const [analysisError, setAnalysisError] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -45,7 +36,29 @@ export default function HEPPage() {
     null
   );
 
+  function confirmHEP() {
+    if (!extractedHEP?.exercises.length || !selectedFile || savingRef.current || dataStatus !== "ready") return;
+    savingRef.current = true;
+    setIsSaving(true);
+    setConfirmationError("");
+    try {
+      confirmPlanReplacement({
+        ...extractedHEP,
+        id: crypto.randomUUID(),
+        sourceFileName: selectedFile.name,
+        uploadedAt: new Date().toISOString(),
+        confirmed: true,
+      }, savedPlan?.id ?? null);
+      router.push("/quest");
+    } catch (error) {
+      setConfirmationError(error instanceof Error ? error.message : "Could not save your plan. Please allow browser storage and try again.");
+      savingRef.current = false;
+      setIsSaving(false);
+    }
+  }
+
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    if (analysisRef.current || savingRef.current) return;
     const file = event.target.files?.[0];
 
     if (!file) {
@@ -55,6 +68,7 @@ export default function HEPPage() {
     setFileError("");
     setAnalysisError("");
     setExtractedHEP(null);
+    setConfirmationError("");
 
     const allowedTypes = [
       "application/pdf",
@@ -72,6 +86,13 @@ export default function HEPPage() {
 
     const maxFileSize = 10 * 1024 * 1024;
 
+    if (file.size === 0) {
+      setSelectedFile(null);
+      setFileError("This file is empty. Choose another PDF or image.");
+      event.target.value = "";
+      return;
+    }
+
     if (file.size > maxFileSize) {
       setSelectedFile(null);
       setFileError(
@@ -85,7 +106,7 @@ export default function HEPPage() {
   }
 
   function chooseFile() {
-    fileInputRef.current?.click();
+    if (!analysisRef.current && !savingRef.current) fileInputRef.current?.click();
   }
 
   function removeFile() {
@@ -93,6 +114,7 @@ export default function HEPPage() {
     setFileError("");
     setAnalysisError("");
     setExtractedHEP(null);
+    setConfirmationError("");
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -108,13 +130,17 @@ export default function HEPPage() {
   }
 
   async function analyzeHEP() {
-    if (!selectedFile || isAnalyzing) {
+    if (!selectedFile || analysisRef.current || savingRef.current) {
       return;
     }
 
+    const controller = new AbortController();
+    analysisRef.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), 60000);
     setIsAnalyzing(true);
     setAnalysisError("");
     setExtractedHEP(null);
+    setConfirmationError("");
 
     try {
       const formData = new FormData();
@@ -123,11 +149,13 @@ export default function HEPPage() {
       const response = await fetch("/api/hep/analyze", {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       });
 
-      const data: AnalyzeResponse = await response.json();
+      const data: AnalyzeResponse = await response.json().catch(() => ({ error: "The document reader is unavailable. Try again in a moment." }));
+      if (analysisRef.current !== controller) return;
 
-      if (!response.ok || !data.success || !data.extractedHEP) {
+      if (!response.ok || !data.success || !isExtractedHEP(data.extractedHEP)) {
         throw new Error(
           data.error || "RehabVerse could not analyze this HEP."
         );
@@ -136,30 +164,34 @@ export default function HEPPage() {
       setExtractedHEP(data.extractedHEP);
 
       window.setTimeout(() => {
-        document
-          .getElementById("hep-review")
-          ?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          });
+        const review = document.getElementById("hep-review");
+        review?.scrollIntoView({
+          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+          block: "start",
+        });
+        review?.focus({ preventScroll: true });
       }, 100);
     } catch (error) {
-      console.error(error);
+      if (analysisRef.current !== controller) return;
 
       setAnalysisError(
-        error instanceof Error
+        controller.signal.aborted ? "Reading took too long. Try again with a clearer or smaller file. Your current plan is unchanged." : error instanceof Error
           ? error.message
           : "RehabVerse could not analyze this HEP."
       );
     } finally {
-      setIsAnalyzing(false);
+      window.clearTimeout(timeout);
+      if (analysisRef.current === controller) {
+        analysisRef.current = null;
+        setIsAnalyzing(false);
+      }
     }
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 px-6 py-8 text-white">
-      <div className="mx-auto max-w-5xl">
-        <nav className="mb-16 flex items-center justify-between">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 px-6 py-8 text-white">
+      <div className="mx-auto max-w-6xl">
+        <nav className="mb-10 flex flex-wrap items-center justify-between gap-4">
           <Link
             href="/"
             className="text-sm text-slate-400 transition hover:text-white"
@@ -170,7 +202,18 @@ export default function HEPPage() {
           <div className="rounded-full border border-indigo-400/20 bg-indigo-400/10 px-4 py-2 text-xs font-medium text-indigo-200">
             My HEP
           </div>
+          <Link href="/progress" className="text-sm text-cyan-200">My Progress →</Link>
         </nav>
+
+        {dataStatus !== "ready" && <p role="status" className="mb-6 rounded-xl border border-indigo-300/20 p-4 text-sm text-slate-300">{dataStatus === "loading" ? "Loading your saved plan…" : "Browser storage is unavailable. Enable it to confirm or update a plan. Your uploaded file can still be reviewed."}</p>}
+
+        {savedPlan && <>
+          <HEPSchedule plan={savedPlan} />
+          <section className="mb-10 flex flex-col justify-between gap-4 rounded-2xl border border-indigo-300/20 bg-indigo-400/10 p-6 sm:flex-row sm:items-center">
+            <div><h2 className="font-semibold">Back from a visit with an updated plan?</h2><p className="mt-2 text-sm text-slate-300">Compare your new HEP with {savedPlan.sourceFileName}. Your current plan stays active until you confirm.</p></div>
+            <button onClick={chooseFile} disabled={isAnalyzing || isSaving} className="shrink-0 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-semibold disabled:opacity-40">Upload Updated HEP</button>
+          </section>
+        </>}
 
         <section className="mx-auto max-w-3xl text-center">
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl border border-indigo-400/20 bg-indigo-500/10 text-4xl">
@@ -195,7 +238,7 @@ export default function HEPPage() {
           </p>
         </section>
 
-        <section className="mx-auto mt-12 max-w-3xl">
+        <section aria-busy={isAnalyzing} className="mx-auto mt-12 max-w-3xl">
           <div
             className={`rounded-3xl border border-dashed p-10 text-center transition ${
               selectedFile
@@ -221,6 +264,7 @@ export default function HEPPage() {
 
                 <input
                   ref={fileInputRef}
+                  aria-label="Upload your Home Exercise Program PDF or image"
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
                   onChange={handleFileChange}
@@ -232,7 +276,7 @@ export default function HEPPage() {
                   onClick={chooseFile}
                   className="mt-7 rounded-xl bg-indigo-500 px-6 py-3 font-semibold text-white transition hover:bg-indigo-400"
                 >
-                  Choose HEP File
+                  {savedPlan ? "Upload Updated HEP" : "Choose HEP File"}
                 </button>
 
                 <p className="mt-3 text-xs text-slate-500">
@@ -275,7 +319,7 @@ export default function HEPPage() {
                   <button
                     type="button"
                     onClick={chooseFile}
-                    disabled={isAnalyzing}
+                    disabled={isAnalyzing || isSaving}
                     className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Choose Different File
@@ -284,7 +328,7 @@ export default function HEPPage() {
                   <button
                     type="button"
                     onClick={analyzeHEP}
-                    disabled={isAnalyzing}
+                    disabled={isAnalyzing || isSaving}
                     className="rounded-xl bg-indigo-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:cursor-wait disabled:opacity-60"
                   >
                     {isAnalyzing ? (
@@ -298,7 +342,7 @@ export default function HEPPage() {
                   </button>
                 </div>
 
-                {!isAnalyzing && (
+                {!isAnalyzing && !isSaving && (
                   <button
                     type="button"
                     onClick={removeFile}
@@ -310,6 +354,7 @@ export default function HEPPage() {
 
                 <input
                   ref={fileInputRef}
+                  aria-label="Upload your Home Exercise Program PDF or image"
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
                   onChange={handleFileChange}
@@ -318,19 +363,21 @@ export default function HEPPage() {
               </>
             )}
 
+            {isAnalyzing && <p role="status" className="mt-5 text-sm leading-6 text-indigo-200">Reading your document. This can take up to a minute. You will review the results before your plan changes.</p>}
+
             {fileError && (
               <div className="mx-auto mt-5 max-w-lg rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-3">
-                <p className="text-sm text-red-300">{fileError}</p>
+                <p role="alert" className="text-sm text-red-300">{fileError}</p>
               </div>
             )}
 
             {analysisError && (
               <div className="mx-auto mt-5 max-w-lg rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-3">
                 <p className="font-semibold text-red-300">
-                  Analysis failed
+                  Could not read this HEP
                 </p>
 
-                <p className="mt-1 text-sm text-red-200/70">
+                <p role="alert" className="mt-1 text-sm text-red-200">
                   {analysisError}
                 </p>
               </div>
@@ -395,9 +442,23 @@ export default function HEPPage() {
           </div>
         </section>
 
-        {extractedHEP && (
+        {extractedHEP && selectedFile && savedPlan && (
+          <PlanUpdateReview
+            currentPlan={savedPlan}
+            extracted={extractedHEP}
+            sourceFileName={selectedFile.name}
+            onConfirm={confirmHEP}
+            onCancel={removeFile}
+            error={confirmationError}
+            saving={isSaving}
+            storageAvailable={dataStatus === "ready"}
+          />
+        )}
+
+        {extractedHEP && !savedPlan && (
           <section
             id="hep-review"
+            tabIndex={-1}
             className="mx-auto mt-16 max-w-4xl scroll-mt-8 pb-20"
           >
             <div className="mb-8 text-center">
@@ -437,28 +498,28 @@ export default function HEPPage() {
                         </h3>
 
                         <div className="mt-4 flex flex-wrap gap-2">
-                          {exercise.sets !== null && (
+                          {exercise.sets != null && (
                             <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300">
                               {exercise.sets}{" "}
                               {exercise.sets === 1 ? "set" : "sets"}
                             </span>
                           )}
 
-                          {exercise.repetitions !== null && (
+                          {exercise.repetitions != null && (
                             <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300">
                               {exercise.repetitions} reps
                             </span>
                           )}
 
-                          {exercise.holdSeconds !== null && (
+                          {exercise.holdSeconds != null && (
                             <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300">
                               Hold {exercise.holdSeconds} sec
                             </span>
                           )}
 
-                          {exercise.sets === null &&
-                            exercise.repetitions === null &&
-                            exercise.holdSeconds === null && (
+                          {exercise.sets == null &&
+                            exercise.repetitions == null &&
+                            exercise.holdSeconds == null && (
                               <span className="rounded-lg border border-amber-400/10 bg-amber-400/5 px-3 py-1.5 text-xs text-amber-200">
                                 Dosage not specified
                               </span>
@@ -506,7 +567,7 @@ export default function HEPPage() {
             </div>
 
             {(extractedHEP.frequency.rawText ||
-              extractedHEP.frequency.sessionsPerWeek !== null ||
+              extractedHEP.frequency.sessionsPerWeek != null ||
               (extractedHEP.frequency.specifiedDays &&
                 extractedHEP.frequency.specifiedDays.length > 0)) && (
               <div className="mt-6 rounded-2xl border border-cyan-400/10 bg-cyan-400/[0.04] p-6">
@@ -520,7 +581,7 @@ export default function HEPPage() {
                   </p>
                 )}
 
-                {extractedHEP.frequency.sessionsPerWeek !== null && (
+                {extractedHEP.frequency.sessionsPerWeek != null && (
                   <p className="mt-2 text-sm text-slate-400">
                     Extracted frequency:{" "}
                     {extractedHEP.frequency.sessionsPerWeek} sessions per
@@ -593,8 +654,10 @@ export default function HEPPage() {
                   type="button"
                   onClick={() => {
                     setExtractedHEP(null);
+                    setConfirmationError("");
                     chooseFile();
                   }}
+                  disabled={isSaving}
                   className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10"
                 >
                   No, choose another file
@@ -602,34 +665,15 @@ export default function HEPPage() {
 
                 <button
                   type="button"
-                  onClick={() => {
-                   if (!extractedHEP || !selectedFile) {
-                    return;
-          }
-
-                   const confirmedPlan = {
-                    id: crypto.randomUUID(),
-                    sourceFileName: selectedFile.name,
-                    uploadedAt: new Date().toISOString(),
-                    exercises: extractedHEP.exercises,
-                    frequency: extractedHEP.frequency,
-                    generalInstructions: extractedHEP.generalInstructions,
-                    extractionNotes: extractedHEP.extractionNotes,
-                    confirmed: true,
-         };
-
-         sessionStorage.setItem(
-          "rehabverse-confirmed-hep",
-          JSON.stringify(confirmedPlan)
-       );
-
-       router.push("/quest");
-     }}
-     className="rounded-xl bg-indigo-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400"
->
-  Yes, Confirm My HEP →
-</button>
+                  onClick={confirmHEP}
+                  disabled={isSaving || dataStatus !== "ready" || extractedHEP.exercises.length === 0}
+                  className="rounded-xl bg-indigo-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-40"
+                >
+                  {isSaving ? "Saving…" : "Yes, Confirm My HEP →"}
+                </button>
               </div>
+
+              {confirmationError && <p role="alert" className="mt-3 text-sm text-rose-200">{confirmationError}</p>}
 
               <p className="mt-3 text-xs text-slate-500">
                 Confirm only after comparing the extracted details with your original HEP.

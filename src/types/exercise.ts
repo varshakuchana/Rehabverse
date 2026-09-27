@@ -1,3 +1,5 @@
+import type { QuestDefinition } from "./quest";
+
 export type TrackingCapability =
   | "interactive"
   | "guided"
@@ -35,4 +37,5 @@ export type Exercise = {
   sessionRoute?: string;
 
   available: boolean;
+  quest: QuestDefinition;
 };
