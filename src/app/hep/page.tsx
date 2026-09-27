@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import SiteNav from "@/components/SiteNav";
 import { confirmPlanReplacement } from "@/lib/scheduleStorage";
 import { useConfirmedPlan, useLocalDataStatus } from "@/hooks/useProgress";
 import HEPSchedule from "@/components/HEPSchedule";
@@ -199,19 +199,7 @@ export default function HEPPage() {
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 px-6 py-8 text-white">
       <div className="mx-auto max-w-6xl">
-        <nav className="mb-10 flex flex-wrap items-center justify-between gap-4">
-          <Link
-            href="/"
-            className="text-sm text-slate-400 transition hover:text-white"
-          >
-            ← Back to RehabVerse
-          </Link>
-
-          <div className="rounded-full border border-indigo-400/20 bg-indigo-400/10 px-4 py-2 text-xs font-medium text-indigo-200">
-            My HEP
-          </div>
-          <Link href="/progress" className="text-sm text-cyan-200">My Progress →</Link>
-        </nav>
+        <SiteNav current="hep" />
 
         {dataStatus !== "ready" && <p role="status" className="mb-6 rounded-xl border border-indigo-300/20 p-4 text-sm text-slate-300">{dataStatus === "loading" ? "Loading your saved plan…" : "Browser storage is unavailable. Enable it to confirm or update a plan. Your uploaded file can still be reviewed."}</p>}
 

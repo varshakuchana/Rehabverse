@@ -22,7 +22,7 @@
 .firefly { animation: shimmer 3.5s ease-in-out infinite alternate; }
 .wave { transform-box: fill-box; transform-origin: center; animation: ripple 1.6s ease-out both; }
 .beam { stroke-dasharray: 150; stroke-dashoffset: 150; animation: energy 1.2s ease-out both; filter: drop-shadow(0 0 12px #67e8f9); }
-.sceneCaption { position: absolute; bottom: 3%; left: 1rem; right: 1rem; text-align: center; color: #c7d2fe; font-size: .8rem; letter-spacing: .04em; }
+.sceneCaption { width: fit-content; margin: 0 auto; padding: .5rem .9rem; border-radius: 999px; background: #10172de6; position: absolute; bottom: 3%; left: 1rem; right: 1rem; text-align: center; color: #c7d2fe; font-size: .8rem; letter-spacing: .04em; }
 .footer { padding: 1.2rem 2rem 1.5rem; background: #02061740; border-top: 1px solid #ffffff08; }
 .progressLabel { display: flex; justify-content: space-between; color: #cbd5e1; font-size: .8rem; }
 .progressLabel strong { color: #99f6e4; font-variant-numeric: tabular-nums; }

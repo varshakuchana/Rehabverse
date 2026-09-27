@@ -1,26 +1,14 @@
+import IslandPresentation from "@/components/IslandPresentation";
+import SiteNav from "@/components/SiteNav";
 import Link from "next/link";
 
 export default function Home() {
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 text-white">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-8">
+    <main id="main-content" tabIndex={-1} className="relative isolate min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 text-white">
+      <IslandPresentation backdrop />
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-8">
         {/* Navigation */}
-        <nav className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500 text-xl shadow-lg shadow-indigo-500/20">
-              ✦
-            </div>
-
-            <div>
-              <p className="text-xl font-bold">RehabVerse</p>
-              <p className="text-xs text-slate-400">
-                Move • Play • Progress
-              </p>
-            </div>
-          </div>
-
-          <Link href="/progress" className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-sm text-cyan-100">My Progress →</Link>
-        </nav>
+        <SiteNav current="home" />
 
         {/* Hero */}
         <section className="flex flex-1 flex-col items-center justify-center py-16">
@@ -46,7 +34,7 @@ export default function Home() {
             {/* HEP */}
             <Link
               href="/hep"
-              className="group relative overflow-hidden rounded-3xl border border-indigo-400/30 bg-indigo-500/10 p-8 transition duration-300 hover:-translate-y-1 hover:border-indigo-300/60 hover:bg-indigo-500/15 hover:shadow-2xl hover:shadow-indigo-950/40"
+              className="rv-glass group relative overflow-hidden rounded-3xl border border-indigo-400/30 bg-indigo-500/10 p-8 transition duration-300 hover:-translate-y-1 hover:border-indigo-300/60 hover:bg-indigo-500/15 hover:shadow-2xl hover:shadow-indigo-950/40"
             >
               <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-indigo-500/20 blur-3xl transition group-hover:bg-indigo-400/30" />
 
@@ -83,7 +71,7 @@ export default function Home() {
             {/* Explore */}
             <Link
               href="/explore"
-              className="group relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-8 transition duration-300 hover:-translate-y-1 hover:border-cyan-300/50 hover:bg-cyan-400/10 hover:shadow-2xl hover:shadow-cyan-950/30"
+              className="rv-glass group relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-8 transition duration-300 hover:-translate-y-1 hover:border-cyan-300/50 hover:bg-cyan-400/10 hover:shadow-2xl hover:shadow-cyan-950/30"
             >
               <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-cyan-400/10 blur-3xl transition group-hover:bg-cyan-400/20" />
 

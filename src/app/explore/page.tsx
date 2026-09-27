@@ -1,3 +1,4 @@
+import SiteNav from "@/components/SiteNav";
 import ExploreNovaCreator from "@/components/ExploreNovaCreator";
 import Link from "next/link";
 import { exercises } from "@/data/exercises";
@@ -6,7 +7,7 @@ export default function ExplorePage() {
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 px-5 py-8 text-white sm:px-8">
       <div className="mx-auto max-w-6xl">
-        <nav className="flex flex-wrap items-center justify-between gap-4 text-sm text-slate-300"><Link href="/">← RehabVerse</Link><div className="flex gap-5"><Link href="/progress" className="hover:text-cyan-200">My Progress</Link><Link href="/hep" className="hover:text-indigo-200">My HEP</Link></div></nav>
+        <SiteNav current="explore" />
         <header className="relative py-14 sm:py-20">
           <div aria-hidden="true" className="pointer-events-none absolute -right-20 top-0 h-80 w-80 rounded-full bg-cyan-400/10 blur-3xl" />
           <p className="text-xs font-semibold uppercase tracking-[.25em] text-cyan-300">Explore · No plan required</p>

@@ -1,5 +1,6 @@
 "use client";
 
+import SiteNav from "@/components/SiteNav";
 import Link from "next/link";
 import { useConfirmedPlan, useLocalDataStatus } from "@/hooks/useProgress";
 import { hepCapability } from "@/lib/hepQuests";
@@ -43,18 +44,8 @@ export default function QuestPage() {
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 px-6 py-8 text-white">
       <div className="mx-auto max-w-6xl">
-        <nav className="flex flex-wrap items-center justify-between gap-4">
-          <Link
-            href="/"
-            className="text-sm text-slate-400 transition hover:text-white"
-          >
-            ← RehabVerse
-          </Link>
-
-          <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-xs font-medium text-emerald-200">
-            ✓ HEP Confirmed
-          </div>
-        </nav>
+        <SiteNav current="quest" />
+        <p className="text-sm text-emerald-200">✓ HEP Confirmed</p>
 
         <section className="mx-auto mt-16 max-w-3xl text-center">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl border border-cyan-400/20 bg-cyan-400/10 text-4xl">

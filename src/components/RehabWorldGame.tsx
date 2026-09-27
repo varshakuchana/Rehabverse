@@ -3,6 +3,7 @@
 import { useId, type CSSProperties } from "react";
 import type { SessionState } from "@/hooks/useHandsFreeStart";
 import type { MovementPhase } from "@/lib/movementEngine";
+import IslandPresentation from "./IslandPresentation";
 import styles from "./RehabWorldGame.module.css";
 
 type RehabWorldGameProps = {
@@ -52,6 +53,7 @@ export default function RehabWorldGame({
 
       <div className={styles.scene}>
         <div className={styles.aurora} />
+        <IslandPresentation completedReps={restored} targetReps={target} channeling={channeling}>
         <svg className={styles.landscape} viewBox="0 0 1000 500" aria-hidden="true">
           <defs>
             <radialGradient id={`${id}-ground`}>
@@ -125,6 +127,7 @@ export default function RehabWorldGame({
               style={{ animationDelay: `${i * -0.27}s` }} />
           ))}
         </svg>
+        </IslandPresentation>
         <div className={styles.sceneCaption} aria-live="polite" aria-atomic="true">
           {complete ? "Every spark has found its home." : restored === 0
             ? "A quiet world, waiting for your first spark."
