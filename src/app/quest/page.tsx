@@ -2,296 +2,134 @@
 
 import SiteNav from "@/components/SiteNav";
 import Link from "next/link";
-import { useConfirmedPlan, useLocalDataStatus } from "@/hooks/useProgress";
-import { hepCapability } from "@/lib/hepQuests";
+import IslandPresentation from "@/components/IslandPresentation";
+import WorldPostcard from "@/components/WorldPostcard";
 import HEPSchedule from "@/components/HEPSchedule";
-import { isPlayableExercise } from "@/lib/scheduleStorage";
+import { useConfirmedPlan, useLocalDataStatus, useProgress } from "@/hooks/useProgress";
+import { hepCapability, hepQuest } from "@/lib/hepQuests";
+import { exerciseKey } from "@/lib/scheduleStorage";
+import { localDateKey } from "@/lib/progressStorage";
+import { THEMES, worldFor } from "@/lib/worldTheme";
+import type { ConfirmedExercise } from "@/types/schedule";
+
+function dose(ex: ConfirmedExercise) {
+  const parts: string[] = [];
+  if (ex.sets != null && ex.repetitions != null) parts.push(`${ex.sets} ${ex.sets === 1 ? "set" : "sets"} of ${ex.repetitions}`);
+  else if (ex.repetitions != null) parts.push(`${ex.repetitions} reps`);
+  else if (ex.sets != null) parts.push(`${ex.sets} ${ex.sets === 1 ? "set" : "sets"}`);
+  if (ex.holdSeconds != null) parts.push(`hold ${ex.holdSeconds}s`);
+  return parts.join(", ") || "Dose not given on your sheet";
+}
 
 export default function QuestPage() {
   const plan = useConfirmedPlan();
   const dataStatus = useLocalDataStatus();
+  const sessions = useProgress();
 
   if (!plan) {
     return (
-      <main id="main-content" tabIndex={-1} className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 px-6 text-white">
-        <div className="max-w-lg rounded-3xl border border-white/10 bg-white/[0.04] p-8 text-center">
-          <div className="text-4xl">📄</div>
-
-          <h1 className="mt-5 text-2xl font-bold">
-            {dataStatus === "loading" ? "Loading your saved HEP…" : dataStatus === "unavailable" ? "Saved HEP unavailable" : "No confirmed HEP yet"}
-          </h1>
-
-          <p className="mt-3 text-sm leading-6 text-slate-400">
-            {dataStatus === "unavailable" ? "Allow browser storage to access your saved plan. You can still explore general movement quests." : dataStatus === "loading" ? "Checking this browser for your confirmed plan." : "Upload and review your Home Exercise Program to create your RehabVerse quest."}
-          </p>
-
-          <Link
-            href="/hep"
-            className="mt-6 inline-block rounded-xl bg-indigo-500 px-6 py-3 text-sm font-semibold transition hover:bg-indigo-400"
-          >
-            Upload My HEP
-          </Link>
-          <div className="mt-5 flex flex-wrap justify-center gap-4 text-sm text-slate-300"><Link href="/">Home</Link><Link href="/explore">Explore</Link><Link href="/progress">Progress</Link></div>
+      <main id="main-content" tabIndex={-1} className="rv-home rv-scene relative isolate min-h-screen overflow-hidden bg-[linear-gradient(180deg,#1E2240_0%,#34355E_55%,#6A5C7D_100%)]">
+        <IslandPresentation backdrop />
+        <div className="relative z-10 mx-auto max-w-6xl px-6 py-6">
+          <SiteNav current="quest" />
+          <div className="rv-glass mt-[12vh] max-w-lg rounded-[28px] p-8">
+            <h1 className="font-display text-[clamp(34px,4vw,48px)] font-extrabold leading-none tracking-tight">
+              {dataStatus === "loading" ? "Loading your plan…" : dataStatus === "unavailable" ? "Saved plan unavailable" : "No plan yet"}
+            </h1>
+            <p className="mt-3 text-[18px] opacity-85">
+              {dataStatus === "unavailable" ? "Allow browser storage to use a saved plan. You can still explore general movements." : dataStatus === "loading" ? "Checking this browser for your confirmed plan." : "Upload the exercise sheet from your PT and check it. Your quest shows up here."}
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link href="/hep" className="rv-btn rv-btn-primary">Upload my plan</Link>
+              <Link href="/explore" className="rv-btn rv-btn-ghost">Try a movement</Link>
+            </div>
+          </div>
         </div>
       </main>
     );
   }
 
-  const playableExercises = plan.exercises.filter(isPlayableExercise);
-  const firstPlayableIndex = plan.exercises.findIndex(isPlayableExercise);
+  const today = localDateKey(new Date());
   const sessionLink = (index: number) => `/session/squat?source=hep&plan=${encodeURIComponent(plan.id)}&exercise=${index}`;
+  const stops = plan.exercises.map((exercise, index) => {
+    const capability = hepCapability(exercise);
+    const def = capability === "reference" ? null : hepQuest(plan, index);
+    const world = def ? worldFor(def) : null;
+    const doneToday = sessions.some(s => s.exerciseId === exerciseKey(plan, index) && s.completedLocalDate === today);
+    return { exercise, index, capability, world, doneToday };
+  });
+  const playable = stops.filter(s => s.world);
+  const next = playable.find(s => !s.doneToday);
+  const doneCount = playable.filter(s => s.doneToday).length;
+  const dateLabel = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 px-6 py-8 text-white">
-      <div className="mx-auto max-w-6xl">
+    <main id="main-content" tabIndex={-1} className="rv-scene relative min-h-screen bg-[linear-gradient(180deg,#1E2240_0%,#2B2B52_60%,#3A3160_100%)]">
+      <div className="relative z-10 mx-auto max-w-6xl px-6 py-6">
         <SiteNav current="quest" />
-        <p className="text-sm text-emerald-200">✓ HEP Confirmed</p>
 
-        <section className="mx-auto mt-16 max-w-3xl text-center">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl border border-cyan-400/20 bg-cyan-400/10 text-4xl">
-            ✨
+        <header className="flex flex-wrap items-end justify-between gap-6 pt-4">
+          <div>
+            <p className="opacity-80">{dateLabel}</p>
+            <h1 className="mt-1 font-display text-[clamp(44px,6vw,80px)] font-extrabold leading-[.93] tracking-tight">Today&apos;s quest</h1>
+            <p className="mt-3 max-w-[48ch] text-[18px] opacity-85">
+              {playable.length === 0 ? "None of your exercises can be played yet. They're listed below for reference."
+                : doneCount === playable.length ? "Everything playable is done for today. Nice work."
+                : `${doneCount} of ${playable.length} done today. Each exercise opens its own world.`}
+            </p>
           </div>
-
-          <p className="mt-6 text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300">
-            Your RehabVerse
-          </p>
-
-          <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl">
-            My HEP Quest
-          </h1>
-
-          <p className="mx-auto mt-5 max-w-2xl leading-7 text-slate-300">
-            Your confirmed HEP is ready. RehabVerse will use the
-            instructions from your uploaded plan while supported movements
-            become interactive challenges.
-          </p>
-        </section>
-
-        <HEPSchedule plan={plan} />
-
-        <section className="mx-auto mt-10 max-w-4xl">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Exercises
-              </p>
-
-              <p className="mt-2 text-3xl font-black">
-                {plan.exercises.length}
-              </p>
-
-              <p className="mt-1 text-xs text-slate-400">
-                extracted and confirmed
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Interactive now
-              </p>
-
-              <p className="mt-2 text-3xl font-black text-cyan-300">
-                {playableExercises.length}
-              </p>
-
-              <p className="mt-1 text-xs text-slate-400">
-                camera-supported movements
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Source
-              </p>
-
-              <p className="mt-3 truncate text-sm font-semibold">
-                {plan.sourceFileName}
-              </p>
-
-              <p className="mt-2 text-xs text-emerald-300">
-                ✓ reviewed by you
-              </p>
-            </div>
-          </div>
-
-          {plan.frequency?.rawText && (
-            <div className="mt-5 rounded-2xl border border-cyan-400/10 bg-cyan-400/[0.04] p-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">
-                Plan frequency
-              </p>
-
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                {plan.frequency.rawText}
-              </p>
-            </div>
+          {next?.world && (
+            <Link href={sessionLink(next.index)} className="rv-btn rv-btn-big border-0" style={{ background: THEMES[next.world].accent, color: THEMES[next.world].ink }}>
+              {doneCount ? "Continue" : "Begin"}: {next.exercise.name} <span aria-hidden>→</span>
+            </Link>
           )}
+        </header>
 
-          <div className="mt-10">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">
-                  Quest path
-                </p>
-
-                <h2 className="mt-2 text-2xl font-bold">
-                  Your confirmed exercises
-                </h2>
-              </div>
-
-              <span className="text-xs text-slate-500">
-                {plan.exercises.length} movements
-              </span>
-            </div>
-
-            <div className="mt-6 space-y-3">
-              {plan.exercises.map((exercise, index) => {
-                const capability = hepCapability(exercise);
-                const isInteractive = capability === "interactive";
-
-                return (
-                  <article
-                    key={`${exercise.name}-${index}`}
-                    className={`rounded-2xl border p-5 ${
-                      isInteractive
-                        ? "border-cyan-400/30 bg-cyan-400/[0.06]"
-                        : "border-white/10 bg-white/[0.03]"
-                    }`}
-                  >
-                    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                      <div className="flex min-w-0 items-start gap-4">
-                        <div
-                          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl font-bold ${
-                            isInteractive
-                              ? "bg-cyan-400/10 text-cyan-300"
-                              : "bg-white/5 text-slate-400"
-                          }`}
-                        >
-                          {index + 1}
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-bold capitalize">
-                              {exercise.name}
-                            </h3>
-
-                            {isInteractive ? (
-                              <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyan-300">
-                                Interactive
-                              </span>
-                            ) : (
-                              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                                {capability === "guided" ? "Guided · Self-reported" : "Reference only"}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400">
-                            {exercise.sets != null && (
-                              <span>{exercise.sets} sets</span>
-                            )}
-
-                            {exercise.repetitions != null && (
-                              <span>• {exercise.repetitions} reps</span>
-                            )}
-
-                            {exercise.holdSeconds != null && (
-                              <span>• Hold {exercise.holdSeconds}s</span>
-                            )}
-
-                            {exercise.sets == null &&
-                              exercise.repetitions == null &&
-                              exercise.holdSeconds == null && (
-                                <span>Dosage not specified in HEP</span>
-                              )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {capability !== "reference" ? (
-                        <Link
-                          href={sessionLink(index)}
-                          className="shrink-0 rounded-xl bg-cyan-400 px-5 py-2.5 text-center text-sm font-bold text-slate-950 transition hover:bg-cyan-300"
-                        >
-                          {isInteractive ? "Play with camera →" : "Open Guided Quest →"}
-                        </Link>
+        <ol className="relative mt-10 grid gap-4" aria-label="Exercises in your plan">
+          <span aria-hidden className="absolute bottom-6 left-[27px] top-6 hidden border-l-2 border-dashed border-white/30 sm:block" />
+          {stops.map(({ exercise, index, capability, world, doneToday }) => {
+            const theme = world ? THEMES[world] : null;
+            return (
+              <li key={`${exercise.name}-${index}`} className="relative grid gap-4 sm:grid-cols-[56px_1fr]">
+                <span aria-hidden className="relative z-10 mt-5 hidden h-14 w-14 place-items-center rounded-full border-[3px] font-display text-xl font-bold sm:grid"
+                  style={{ borderColor: theme?.accent ?? "rgba(244,246,242,.35)", background: doneToday ? theme?.accent : "#1E2240", color: doneToday ? theme?.ink : "inherit" }}>
+                  {doneToday ? "✓" : index + 1}
+                </span>
+                <article className={`grid overflow-hidden rounded-[24px] border bg-[rgba(24,28,54,.8)] md:grid-cols-[220px_1fr] ${theme ? "" : "opacity-80"}`} style={{ borderColor: theme ? `${theme.accent}66` : "rgba(244,246,242,.15)" }}>
+                  <div className="relative min-h-32">
+                    {world ? <WorldPostcard world={world} /> : <div className="grid h-full place-items-center bg-white/5 p-4 text-center text-[15px] opacity-70">Reference only</div>}
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-4 p-5">
+                    <div className="min-w-0">
+                      <h2 className="font-display text-2xl font-bold capitalize leading-tight">{exercise.name}</h2>
+                      <p className="mt-1 text-[16px] opacity-85">{dose(exercise)}.</p>
+                      {theme ? (
+                        <p className="mt-1 text-[15px]"><span style={{ color: theme.accent }}>{theme.quest}.</span> <span className="opacity-75">{capability === "interactive" ? "The camera counts." : "You mark each rep; nothing is measured."}</span></p>
                       ) : (
-                        <span className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs text-slate-500">
-                          Reference only
-                        </span>
+                        <p className="mt-1 text-[15px] opacity-70">This needs a rep count (and, for follow-along, instructions) from your plan before it can be played.</p>
                       )}
+                      {doneToday && <p className="mt-1 text-[15px] font-semibold" style={{ color: theme?.accent }}>Done today</p>}
                     </div>
-                    {capability === "reference" && <p className="mt-4 text-xs leading-5 text-slate-400">This session needs an explicit positive repetition count and, for Guided movements, confirmed instructions. Missing or hold-only dosage stays for reference; no repetitions are inferred.</p>}
-                    {capability === "guided" && <p className="mt-4 text-xs leading-5 text-violet-200">Uses your confirmed HEP dosage. You mark completion; the camera does not verify movements or holds.</p>}
-                  </article>
-                );
-              })}
-            </div>
-          </div>
+                    {theme && (
+                      <Link href={sessionLink(index)} className="rv-btn shrink-0 border-0" style={{ background: theme.accent, color: theme.ink }}>
+                        {doneToday ? "Again" : capability === "interactive" ? "Play" : "Follow along"}
+                      </Link>
+                    )}
+                  </div>
+                </article>
+              </li>
+            );
+          })}
+        </ol>
 
-          {playableExercises.length > 0 ? (
-            <div className="mt-8 rounded-3xl border border-cyan-400/20 bg-gradient-to-r from-cyan-400/[0.08] to-indigo-400/[0.08] p-7">
-              <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">
-                    Interactive movement available
-                  </p>
+        <div className="rv-quest-schedule mt-10"><HEPSchedule plan={plan} /></div>
 
-                  <h2 className="mt-2 text-xl font-bold">
-                    Your HEP contains a movement RehabVerse can track.
-                  </h2>
-
-                  <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
-                    We&apos;ll use the camera to recognize the supported
-                    movement while keeping the exercise instructions from
-                    your confirmed plan.
-                  </p>
-                </div>
-
-                <Link
-                  href={sessionLink(firstPlayableIndex)}
-                  className="shrink-0 rounded-xl bg-cyan-400 px-6 py-3 text-center font-bold text-slate-950 transition hover:bg-cyan-300"
-                >
-                  Begin Quest →
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-8 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-6">
-              <p className="font-semibold text-amber-200">
-                No camera-supported movement matched yet.
-              </p>
-
-              <p className="mt-2 text-sm leading-6 text-slate-400">
-                Guided sessions are available where confirmed repetitions and instructions are present. Other entries stay for reference. RehabVerse
-                currently has interactive tracking for a limited set of
-                movements in this prototype.
-              </p>
-            </div>
-          )}
-
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link
-              href="/hep"
-              className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/10"
-            >
-              Review / Upload HEP
-            </Link>
-
-            <Link
-              href="/explore"
-              className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/10"
-            >
-              Explore RehabVerse
-            </Link>
-          </div>
-
-          <p className="mx-auto mt-8 max-w-2xl text-center text-xs leading-5 text-slate-500">
-            RehabVerse is a hackathon prototype and does not diagnose,
-            prescribe, or replace professional healthcare guidance. Follow
-            the instructions and limits in your care plan.
-          </p>
-        </section>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link href="/hep" className="rv-btn rv-btn-ghost">Upload an updated plan</Link>
+          <Link href="/progress" className="rv-btn rv-btn-ghost">Progress</Link>
+        </div>
+        {plan.frequency?.rawText && <p className="mt-6 text-[15px] opacity-75">Your plan says: {plan.frequency.rawText}</p>}
+        <p className="mt-2 pb-8 text-[15px] opacity-75">From {plan.sourceFileName}, reviewed by you. Follow the instructions and limits in your care plan, and stop if anything hurts.</p>
       </div>
     </main>
   );

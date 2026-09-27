@@ -1,161 +1,96 @@
 import IslandPresentation from "@/components/IslandPresentation";
 import SiteNav from "@/components/SiteNav";
+import WorldPostcard from "@/components/WorldPostcard";
+import { THEMES } from "@/lib/worldTheme";
 import Link from "next/link";
+import type { WorldKind } from "@/lib/rehabWorld/worlds";
+
+const WORLDS: { world: WorldKind; exercise: string; line: string }[] = [
+  { world: "well", exercise: "Squats and sit to stand", line: "The bucket drops as you lower and comes up as you stand. Each rep waters a flower bed." },
+  { world: "flock", exercise: "Arm raises", line: "A bird lifts its wings with your arm. Each rep, one more bird joins the flock over the sea." },
+  { world: "cairn", exercise: "Holds and balance", line: "Every hold you finish sets one more stone on the cairn by the lake." },
+  { world: "orbit", exercise: "Everything else", line: "Follow along and mark each rep. Each one sends a moon into orbit." },
+];
 
 export default function Home() {
   return (
-    <main id="main-content" tabIndex={-1} className="relative isolate min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 text-white">
+    <main id="main-content" tabIndex={-1} className="rv-home rv-scene relative isolate min-h-screen overflow-hidden bg-[#1E2240]">
+      <div aria-hidden className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,#1E2240_0%,#34355E_55%,#6A5C7D_100%)]" />
       <IslandPresentation backdrop />
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-8">
-        {/* Navigation */}
+      <div className="relative z-10 mx-auto max-w-7xl px-6 py-6">
         <SiteNav current="home" />
 
-        {/* Hero */}
-        <section className="flex flex-1 flex-col items-center justify-center py-16">
-          <div className="mb-5 rounded-full border border-indigo-400/20 bg-indigo-400/10 px-4 py-2 text-sm font-medium text-indigo-200">
-            ✨ Your movement changes the world
-          </div>
-
-          <h1 className="max-w-4xl text-center text-5xl font-black tracking-tight sm:text-6xl lg:text-7xl">
-            Turn movement into an{" "}
-            <span className="bg-gradient-to-r from-indigo-300 via-violet-300 to-cyan-300 bg-clip-text text-transparent">
-              interactive adventure.
-            </span>
-          </h1>
-
-          <p className="mt-6 max-w-2xl text-center text-lg leading-8 text-slate-300">
-            Transform an existing home exercise plan into interactive
-            movement quests, or jump into built-in movement games and
-            experience RehabVerse instantly.
-          </p>
-
-          {/* Main choices */}
-          <div className="mt-12 grid w-full max-w-5xl gap-6 md:grid-cols-2">
-            {/* HEP */}
-            <Link
-              href="/hep"
-              className="rv-glass group relative overflow-hidden rounded-3xl border border-indigo-400/30 bg-indigo-500/10 p-8 transition duration-300 hover:-translate-y-1 hover:border-indigo-300/60 hover:bg-indigo-500/15 hover:shadow-2xl hover:shadow-indigo-950/40"
-            >
-              <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-indigo-500/20 blur-3xl transition group-hover:bg-indigo-400/30" />
-
-              <div className="relative">
-                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/20 text-3xl">
-                  📄
-                </div>
-
-                <div className="mb-3 flex items-center gap-2">
-                  <h2 className="text-2xl font-bold">
-                    My HEP
-                  </h2>
-
-                  <span className="rounded-full bg-indigo-400/15 px-2.5 py-1 text-xs font-semibold text-indigo-200">
-                    AI Powered
-                  </span>
-                </div>
-
-                <p className="leading-7 text-slate-300">
-                  Already have a Home Exercise Program from your
-                  physical therapist? Upload it and turn the existing
-                  plan into interactive quests.
-                </p>
-
-                <div className="mt-8 flex items-center gap-2 font-semibold text-indigo-300">
-                  Upload my plan
-                  <span className="transition-transform group-hover:translate-x-1">
-                    →
-                  </span>
-                </div>
-              </div>
-            </Link>
-
-            {/* Explore */}
-            <Link
-              href="/explore"
-              className="rv-glass group relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-8 transition duration-300 hover:-translate-y-1 hover:border-cyan-300/50 hover:bg-cyan-400/10 hover:shadow-2xl hover:shadow-cyan-950/30"
-            >
-              <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-cyan-400/10 blur-3xl transition group-hover:bg-cyan-400/20" />
-
-              <div className="relative">
-                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-400/10 text-3xl">
-                  🎮
-                </div>
-
-                <div className="mb-3 flex items-center gap-2">
-                  <h2 className="text-2xl font-bold">
-                    Explore with Nova
-                  </h2>
-
-                  <span className="rounded-full bg-cyan-400/10 px-2.5 py-1 text-xs font-semibold text-cyan-200">
-                    No HEP needed
-                  </span>
-                </div>
-
-                <p className="leading-7 text-slate-300">
-                  No exercise plan? Tell Nova what kind of general movement
-                  experience you want and build a quest from our supported library.
-                </p>
-
-                <div className="mt-8 flex items-center gap-2 font-semibold text-cyan-300">
-                  Start exploring
-                  <span className="transition-transform group-hover:translate-x-1">
-                    →
-                  </span>
-                </div>
-              </div>
-            </Link>
-          </div>
-
-          <div className="mt-6 grid w-full max-w-5xl gap-6 md:grid-cols-[2fr_1fr]">
-            <Link href="/story" className="rv-glass group rounded-3xl border border-amber-300/40 p-8 transition hover:border-amber-200">
-              <p className="text-xs uppercase tracking-[.2em] text-amber-200">A new journey awaits</p>
-              <h2 className="mt-3 text-3xl font-bold">Story Mode</h2>
-              <p className="mt-2 text-xl text-amber-100">The Shattered Realms</p>
-              <p className="mt-4 leading-7 text-slate-200">Enter the Shattered Realms and restore a world powered by your movement.</p>
-              <p className="mt-4 text-xs text-slate-300">General movement game — not personalized medical treatment.</p>
-              <p className="mt-6 font-semibold text-amber-200">Begin your journey →</p>
-            </Link>
-            <Link href="/progress" className="rv-glass rounded-3xl p-8 transition hover:border-cyan-200">
-              <h2 className="text-2xl font-bold">Progress</h2>
-              <p className="mt-4 leading-7 text-slate-300">See your HEP and Explore activity history. Story fragments live on the Story world map.</p>
-              <p className="mt-6 font-semibold text-cyan-200">Open your journal →</p>
-            </Link>
-          </div>
-
-          {/* How it works */}
-          <div className="mt-14 grid w-full max-w-5xl gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-              <div className="mb-3 text-2xl">👁️</div>
-              <p className="font-semibold">See your movement</p>
-              <p className="mt-1 text-sm leading-6 text-slate-400">
-                Camera-based pose tracking follows supported body
-                movements in real time.
-              </p>
+        <section className="grid min-h-[78vh] items-center gap-10 py-6 lg:grid-cols-[1.05fr_.95fr]">
+          <div>
+            <h1 className="rv-wordmark">RehabVerse</h1>
+            <p className="mt-6 max-w-[34ch] text-[clamp(19px,1.7vw,24px)] leading-snug">
+              Your physical therapist&apos;s home exercises, turned into small worlds you bring back to life one rep at a time.
+            </p>
+            <div className="mt-9 flex flex-wrap gap-3">
+              <Link href="/hep" className="rv-btn rv-btn-primary rv-btn-big">Use my PT&apos;s plan</Link>
+              <Link href="/explore" className="rv-btn rv-btn-ghost rv-btn-big">Play without a plan</Link>
             </div>
+            <p className="mt-6 max-w-[52ch] text-[15px] opacity-75">
+              RehabVerse follows your therapist&apos;s plan. It doesn&apos;t diagnose anything or change your exercises.
+            </p>
+          </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-              <div className="mb-3 text-2xl">⚡</div>
-              <p className="font-semibold">Power the world</p>
-              <p className="mt-1 text-sm leading-6 text-slate-400">
-                Physical movement becomes energy that drives interactive
-                challenges.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-              <div className="mb-3 text-2xl">🌱</div>
-              <p className="font-semibold">Build consistency</p>
-              <p className="mt-1 text-sm leading-6 text-slate-400">
-                Complete sessions and watch your RehabVerse evolve over
-                time.
-              </p>
+          <div className="grid gap-4">
+            <Link href="/story" className="group relative block overflow-hidden rounded-[28px] border border-[#F2C14E]/50 bg-[rgba(24,28,54,.78)] p-7 backdrop-blur-md transition hover:border-[#F2C14E]">
+              <div aria-hidden className="absolute -right-10 -top-12 h-48 w-48 rounded-full bg-[#F2C14E]/20 blur-3xl transition group-hover:bg-[#F2C14E]/30" />
+              <p className="rv-eyebrow">Story Mode</p>
+              <h2 className="mt-1 font-display text-[clamp(30px,3vw,42px)] font-extrabold leading-none tracking-tight">The Shattered Realms</h2>
+              <p className="mt-3 max-w-[40ch] text-[17px] opacity-90">Four realms, three movement abilities, one broken world. Restore the Motion Core with your own body.</p>
+              <p className="mt-5 font-display text-lg font-semibold text-[#F2C14E]">Begin the journey <span aria-hidden className="inline-block transition group-hover:translate-x-1">→</span></p>
+            </Link>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Link href="/quest" className="rv-glass block rounded-[24px] p-6 transition hover:bg-[rgba(24,28,54,.95)]">
+                <h2 className="font-display text-xl font-bold">Today&apos;s quest</h2>
+                <p className="mt-1 text-[16px] opacity-80">Your confirmed plan, one stop at a time.</p>
+              </Link>
+              <Link href="/progress" className="rv-glass block rounded-[24px] p-6 transition hover:bg-[rgba(24,28,54,.95)]">
+                <h2 className="font-display text-xl font-bold">Progress</h2>
+                <p className="mt-1 text-[16px] opacity-80">Every finished quest, saved on this device.</p>
+              </Link>
             </div>
           </div>
         </section>
 
-        <footer className="border-t border-white/10 py-5 text-center text-xs leading-5 text-slate-500">
-          RehabVerse is a hackathon prototype. It does not diagnose,
-          prescribe, or replace guidance from a qualified healthcare
-          professional.
+        <section aria-labelledby="worlds-h" className="pb-14">
+          <h2 id="worlds-h" className="font-display text-[clamp(30px,3.4vw,46px)] font-extrabold tracking-tight">Every exercise gets its own world</h2>
+          <p className="mt-2 max-w-[60ch] text-[18px] opacity-85">The world reacts to the movement you&apos;re doing, so the game always matches the exercise.</p>
+          <ul className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {WORLDS.map(({ world, exercise, line }) => (
+              <li key={world} className="overflow-hidden rounded-[24px] border border-white/15 bg-[rgba(24,28,54,.8)]">
+                <div className="aspect-[16/9]"><WorldPostcard world={world} /></div>
+                <div className="p-5">
+                  <p className="text-[15px] font-semibold" style={{ color: THEMES[world].accent }}>{exercise}</p>
+                  <h3 className="mt-0.5 font-display text-xl font-bold leading-tight">{THEMES[world].quest}</h3>
+                  <p className="mt-2 text-[15px] leading-snug opacity-80">{line}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section aria-labelledby="how-h" className="grid gap-6 border-t border-white/15 py-12 lg:grid-cols-[.8fr_2fr]">
+          <h2 id="how-h" className="font-display text-3xl font-extrabold tracking-tight">How it works</h2>
+          <ol className="grid gap-6 sm:grid-cols-3">
+            {[
+              ["Upload the sheet", "A PDF or photo of the home exercise plan your PT gave you. Gemini reads it."],
+              ["Check it yourself", "You pick which exercises to include and fix anything the reader got wrong."],
+              ["Play it", "The camera counts supported movements. Anything else, you follow along and mark."],
+            ].map(([title, text], i) => (
+              <li key={title} className="flex gap-4">
+                <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#F2C14E] font-display text-lg font-bold text-[#2A2410]">{i + 1}</span>
+                <div><h3 className="font-display text-lg font-bold">{title}</h3><p className="mt-1 text-[16px] leading-snug opacity-80">{text}</p></div>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <footer className="border-t border-white/15 py-5 text-[14px] leading-6 opacity-70">
+          RehabVerse is a hackathon prototype. It does not diagnose, prescribe, or replace guidance from a qualified healthcare professional.
         </footer>
       </div>
     </main>

@@ -5,6 +5,7 @@ import { confirmPlanReplacement } from "@/lib/scheduleStorage";
 import { useConfirmedPlan, useLocalDataStatus } from "@/hooks/useProgress";
 import HEPSchedule from "@/components/HEPSchedule";
 import HEPExerciseEditor from "@/components/HEPExerciseEditor";
+import IslandPresentation from "@/components/IslandPresentation";
 import { createHEPReview, selectedHEP, reviewValid, type ReviewExercise } from "@/lib/hepReview";
 import PlanUpdateReview from "@/components/PlanUpdateReview";
 import { isExtractedHEP } from "@/lib/validateHEP";
@@ -197,62 +198,48 @@ export default function HEPPage() {
   }
 
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 px-6 py-8 text-white">
-      <div className="mx-auto max-w-6xl">
+    <main id="main-content" tabIndex={-1} className="rv-home rv-scene relative isolate min-h-screen overflow-hidden bg-[linear-gradient(180deg,#1E2240_0%,#2B2B52_60%,#3A3160_100%)] px-6 py-6">
+      {!extractedHEP && <div aria-hidden className="pointer-events-none absolute inset-y-0 right-[-20%] w-[70%]"><IslandPresentation backdrop /></div>}
+      <div className="relative z-10 mx-auto max-w-6xl">
         <SiteNav current="hep" />
 
-        {dataStatus !== "ready" && <p role="status" className="mb-6 rounded-xl border border-indigo-300/20 p-4 text-sm text-slate-300">{dataStatus === "loading" ? "Loading your saved plan…" : "Browser storage is unavailable. Enable it to confirm or update a plan. Your uploaded file can still be reviewed."}</p>}
+        {dataStatus !== "ready" && <p role="status" className="rv-glass mb-6 rounded-2xl p-4 text-[15px]">{dataStatus === "loading" ? "Loading your saved plan…" : "Browser storage is unavailable. Enable it to confirm or update a plan. Your uploaded file can still be reviewed."}</p>}
 
         {savedPlan && <>
           <HEPSchedule plan={savedPlan} />
-          <section className="mb-10 flex flex-col justify-between gap-4 rounded-2xl border border-indigo-300/20 bg-indigo-400/10 p-6 sm:flex-row sm:items-center">
-            <div><h2 className="font-semibold">Back from a visit with an updated plan?</h2><p className="mt-2 text-sm text-slate-300">Compare your new HEP with {savedPlan.sourceFileName}. Your current plan stays active until you confirm.</p></div>
-            <button onClick={chooseFile} disabled={isAnalyzing || isSaving} className="shrink-0 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-semibold disabled:opacity-40">Upload Updated HEP</button>
+          <section className="rv-glass mb-10 flex flex-col justify-between gap-4 rounded-[24px] p-6 sm:flex-row sm:items-center">
+            <div><h2 className="font-display text-2xl font-bold">Back from a visit with an updated plan?</h2><p className="mt-1 text-[16px] opacity-85">Compare your new HEP with {savedPlan.sourceFileName}. Your current plan stays active until you confirm.</p></div>
+            <button onClick={chooseFile} disabled={isAnalyzing || isSaving} className="rv-btn rv-btn-primary shrink-0">Upload updated plan</button>
           </section>
         </>}
 
-        <section className="mx-auto max-w-3xl text-center">
-          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl border border-indigo-400/20 bg-indigo-500/10 text-4xl">
-            📄
-          </div>
-
-          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.25em] text-indigo-300">
-            Transform My HEP
-          </p>
-
-          <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
-            Turn your exercise plan into
-            <span className="block bg-gradient-to-r from-indigo-300 to-cyan-300 bg-clip-text text-transparent">
-              an interactive quest.
-            </span>
+        <section className="max-w-3xl pt-4">
+          <p className="rv-eyebrow">My HEP</p>
+          <h1 className="mt-1 font-display text-[clamp(44px,6vw,80px)] font-extrabold leading-[.93] tracking-tight">
+            {savedPlan ? "Your plan, updated" : "Upload your plan"}
           </h1>
-
-          <p className="mx-auto mt-6 max-w-2xl leading-7 text-slate-300">
-            Upload the Home Exercise Program provided by your physical
-            therapist. RehabVerse will help turn supported exercises from
-            that existing plan into interactive movement experiences.
+          <p className="mt-4 max-w-[46ch] text-[19px] leading-snug opacity-90">
+            The home exercise sheet your physical therapist gave you, as a PDF or a photo. You check everything RehabVerse reads before any of it is used.
           </p>
         </section>
 
-        <section aria-busy={isAnalyzing} className="mx-auto mt-12 max-w-3xl">
+        <section aria-busy={isAnalyzing} className="mt-8 max-w-3xl">
           <div
-            className={`rounded-3xl border border-dashed p-10 text-center transition ${
+            className={`rounded-[28px] border-2 border-dashed p-9 text-center backdrop-blur-md transition ${
               selectedFile
-                ? "border-emerald-400/30 bg-emerald-400/[0.04]"
-                : "border-indigo-400/30 bg-white/[0.04]"
+                ? "border-[#F2C14E] bg-[rgba(24,28,54,.8)]"
+                : "border-white/45 bg-[rgba(24,28,54,.6)]"
             }`}
           >
             {!selectedFile ? (
               <>
-                <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/5 text-3xl">
-                  📤
-                </div>
+                <svg aria-hidden viewBox="0 0 64 64" className="mx-auto mb-4 h-16 w-16"><rect x="14" y="8" width="36" height="46" rx="4" fill="#EEF2F1" /><path d="M21 20h22M21 28h22M21 36h14" stroke="#4F5D68" strokeWidth="3" strokeLinecap="round" /><path d="M20 44h16" stroke="#F7DC86" strokeWidth="7" strokeLinecap="round" opacity=".9" /></svg>
 
-                <h2 className="text-xl font-bold">
-                  Upload your Home Exercise Program
+                <h2 className="font-display text-2xl font-bold">
+                  Drop in your exercise sheet
                 </h2>
 
-                <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-slate-400">
+                <p className="mx-auto mt-2 max-w-lg text-[16px] leading-snug opacity-80">
                   Add the PDF or image you received from your physical
                   therapist. You&apos;ll review everything RehabVerse reads
                   before anything is added to your plan.
@@ -270,30 +257,30 @@ export default function HEPPage() {
                 <button
                   type="button"
                   onClick={chooseFile}
-                  className="mt-7 rounded-xl bg-indigo-500 px-6 py-3 font-semibold text-white transition hover:bg-indigo-400"
+                  className="rv-btn rv-btn-primary mt-6"
                 >
-                  {savedPlan ? "Upload Updated HEP" : "Choose HEP File"}
+                  {savedPlan ? "Upload updated plan" : "Choose a file"}
                 </button>
 
-                <p className="mt-3 text-xs text-slate-500">
+                <p className="mt-3 text-[14px] opacity-65">
                   Supported: PDF, JPG, PNG, WEBP • Maximum 10 MB
                 </p>
               </>
             ) : (
               <>
-                <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-400/10 text-3xl">
+                <div aria-hidden className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-[#F2C14E] font-display text-2xl font-bold text-[#2A2410]">
                   ✓
                 </div>
 
-                <p className="text-sm font-semibold uppercase tracking-wider text-emerald-300">
+                <p className="rv-eyebrow">
                   File selected
                 </p>
 
-                <h2 className="mt-3 break-words text-xl font-bold">
+                <h2 className="mt-1 break-words font-display text-2xl font-bold">
                   {selectedFile.name}
                 </h2>
 
-                <div className="mt-3 flex items-center justify-center gap-3 text-sm text-slate-400">
+                <div className="mt-2 flex items-center justify-center gap-3 text-[15px] opacity-75">
                   <span>
                     {selectedFile.type === "application/pdf"
                       ? "PDF document"
@@ -305,7 +292,7 @@ export default function HEPPage() {
                   <span>{formatFileSize(selectedFile.size)}</span>
                 </div>
 
-                <p className="mx-auto mt-5 max-w-lg text-sm leading-6 text-slate-400">
+                <p className="mx-auto mt-4 max-w-lg text-[16px] leading-snug opacity-80">
                   RehabVerse will extract the exercise information in this
                   document. You&apos;ll review the results before the plan is
                   used.
@@ -316,7 +303,7 @@ export default function HEPPage() {
                     type="button"
                     onClick={chooseFile}
                     disabled={isAnalyzing || isSaving}
-                    className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rv-btn rv-btn-ghost"
                   >
                     Choose Different File
                   </button>
@@ -325,11 +312,11 @@ export default function HEPPage() {
                     type="button"
                     onClick={analyzeHEP}
                     disabled={isAnalyzing || isSaving}
-                    className="rounded-xl bg-indigo-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:cursor-wait disabled:opacity-60"
+                    className="rv-btn rv-btn-primary disabled:cursor-wait"
                   >
                     {isAnalyzing ? (
                       <span className="flex items-center justify-center gap-2">
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#2A2410]/30 border-t-[#2A2410]" />
                         Reading your HEP...
                       </span>
                     ) : (
@@ -342,7 +329,7 @@ export default function HEPPage() {
                   <button
                     type="button"
                     onClick={removeFile}
-                    className="mt-4 text-xs text-slate-500 transition hover:text-slate-300"
+                    className="rv-link mt-4 text-[14px] opacity-75 hover:opacity-100"
                   >
                     Remove file
                   </button>
@@ -359,7 +346,7 @@ export default function HEPPage() {
               </>
             )}
 
-            {isAnalyzing && <p role="status" className="mt-5 text-sm leading-6 text-indigo-200">Reading your document. This can take up to a minute. You will review the results before your plan changes.</p>}
+            {isAnalyzing && <p role="status" className="rv-busy mt-5 text-[16px] leading-snug">Reading your document. This can take up to a minute. You will review the results before your plan changes.</p>}
 
             {fileError && (
               <div className="mx-auto mt-5 max-w-lg rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-3">
@@ -380,55 +367,18 @@ export default function HEPPage() {
             )}
           </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-3">
-            <div
-              className={`rounded-2xl border p-5 ${
-                selectedFile
-                  ? "border-emerald-400/20 bg-emerald-400/[0.05]"
-                  : "border-indigo-400/20 bg-indigo-400/[0.06]"
-              }`}
-            >
-              <div className="mb-3 text-xl">
-                {selectedFile ? "✓" : "1️⃣"}
-              </div>
+          <ol className="mt-6 grid gap-4 sm:grid-cols-3">
+            {([["Upload", "The exercise plan you already have.", !!selectedFile], ["Check", "Pick your exercises and fix anything misread.", !!extractedHEP], ["Play", "Each exercise opens its own world.", false]] as const).map(([title, text, done], i) => (
+              <li key={title} className="flex gap-3">
+                <span aria-hidden className={`grid h-9 w-9 shrink-0 place-items-center rounded-full font-display font-bold ${done ? "bg-[#F2C14E] text-[#2A2410]" : "border-2 border-white/40"}`}>{done ? "✓" : i + 1}</span>
+                <div><h3 className="font-display text-lg font-bold">{title}</h3><p className="text-[15px] leading-snug opacity-80">{text}</p></div>
+              </li>
+            ))}
+          </ol>
 
-              <h3 className="font-semibold">Upload</h3>
-
-              <p className="mt-2 text-sm leading-6 text-slate-400">
-                Add the exercise plan already provided to you.
-              </p>
-            </div>
-
-            <div
-              className={`rounded-2xl border p-5 ${
-                extractedHEP
-                  ? "border-indigo-400/30 bg-indigo-400/[0.08]"
-                  : "border-white/10 bg-white/[0.03]"
-              }`}
-            >
-              <div className="mb-3 text-xl">2️⃣</div>
-
-              <h3 className="font-semibold">Review</h3>
-
-              <p className="mt-2 text-sm leading-6 text-slate-400">
-                Confirm the exercises and instructions that were extracted.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-              <div className="mb-3 text-xl">3️⃣</div>
-
-              <h3 className="font-semibold">Play</h3>
-
-              <p className="mt-2 text-sm leading-6 text-slate-400">
-                Turn supported movements into interactive RehabVerse quests.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-8 rounded-2xl border border-amber-400/10 bg-amber-400/5 p-5">
-            <p className="text-sm leading-6 text-slate-400">
-              <span className="font-semibold text-amber-200">
+          <div className="mt-8 rounded-2xl border border-white/15 bg-white/5 p-5">
+            <p className="text-[15px] leading-snug opacity-85">
+              <span className="font-semibold text-[#F2C14E]">
                 Your care plan stays in control.
               </span>{" "}
               RehabVerse does not create a new rehabilitation prescription.
@@ -440,11 +390,11 @@ export default function HEPPage() {
 
         {extractedHEP && reviewedHEP && selectedFile && <>
           <HEPExerciseEditor original={extractedHEP} review={review} onChange={setReview} disabled={isSaving} />
-          {!canConfirm && <p className="mx-auto mt-5 max-w-5xl text-sm text-amber-200">Select at least one exercise. Selected entries need a name; supplied counts must be positive whole numbers. Unspecified dosage can stay blank.</p>}
-          {savedPlan ? <PlanUpdateReview currentPlan={savedPlan} extracted={reviewedHEP} sourceFileName={selectedFile.name} onConfirm={confirmHEP} onCancel={removeFile} error={confirmationError} saving={isSaving} storageAvailable={dataStatus === "ready" && canConfirm} /> : <section className="mx-auto my-8 max-w-5xl rounded-2xl border border-indigo-300/20 bg-indigo-400/10 p-6">
-            <p className="text-sm text-slate-300">Only your selected, corrected entries will appear in My HEP. Missing dosage stays missing; RehabVerse does not prescribe it.</p>
-            <div className="mt-5 flex flex-wrap gap-3"><button onClick={confirmHEP} disabled={isSaving || dataStatus !== "ready" || !canConfirm} className="rounded-xl bg-indigo-500 px-6 py-3 font-semibold disabled:opacity-40">{isSaving ? "Saving…" : "Confirm My HEP"}</button><button onClick={removeFile} disabled={isSaving} className="rounded-xl border border-white/20 px-5 py-3">Choose another file</button></div>
-            {confirmationError && <p role="alert" className="mt-3 text-rose-200">{confirmationError}</p>}
+          {!canConfirm && <p className="mx-auto mt-5 max-w-5xl text-[15px] text-[#FFD89A]">Select at least one exercise. Selected entries need a name; supplied counts must be positive whole numbers. Unspecified dosage can stay blank.</p>}
+          {savedPlan ? <PlanUpdateReview currentPlan={savedPlan} extracted={reviewedHEP} sourceFileName={selectedFile.name} onConfirm={confirmHEP} onCancel={removeFile} error={confirmationError} saving={isSaving} storageAvailable={dataStatus === "ready" && canConfirm} /> : <section className="sticky bottom-0 z-10 mx-auto my-8 max-w-5xl rounded-[24px] border-2 border-[#1F2A33] bg-[#EEF2F1] p-5 text-[#1F2A33] shadow-2xl">
+            <p className="text-[15px]">Only your selected, corrected entries will appear in My HEP. Missing dosage stays missing; RehabVerse does not prescribe it.</p>
+            <div className="mt-5 flex flex-wrap gap-3"><button onClick={confirmHEP} disabled={isSaving || dataStatus !== "ready" || !canConfirm} className="rv-btn rv-btn-moss">{isSaving ? "Saving…" : "Confirm my plan"}</button><button onClick={removeFile} disabled={isSaving} className="rv-btn">Choose another file</button></div>
+            {confirmationError && <p role="alert" className="mt-3 text-[#A23B3B]">{confirmationError}</p>}
           </section>}
         </>}
       </div>

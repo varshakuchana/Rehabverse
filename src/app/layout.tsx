@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Atkinson_Hyperlegible, Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// Display: Bricolage Grotesque, big and warm, readable from across a room.
+const display = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"] });
+// Body: Atkinson Hyperlegible, designed for low-vision readers.
+const body = Atkinson_Hyperlegible({ variable: "--font-atkinson", subsets: ["latin"], weight: ["400", "700"] });
 
 export const metadata: Metadata = {
   title: "RehabVerse | Move • Play • Progress",
@@ -19,12 +14,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="en" className={`${display.variable} ${body.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        <a href="#main-content" className="sr-only z-50 rounded-xl bg-indigo-600 p-3 text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Skip to main content</a>
+        <a href="#main-content" className="sr-only z-50 rounded-xl bg-[#F2C14E] p-3 text-[#2A2410] focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Skip to main content</a>
         {children}
       </body>
     </html>

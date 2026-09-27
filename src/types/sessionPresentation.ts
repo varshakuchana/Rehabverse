@@ -10,4 +10,10 @@ export type SessionPresentation = {
   onExit: () => void;
   onTrackingLost: () => void;
   renderWorld: (state: SessionVisualState) => ReactNode;
+  /** Camera permission was already granted this run: turn the camera back on without another click. */
+  autoCamera?: boolean;
+  /** Go straight to the session; the Story guide explains the movement instead of a tutorial card. */
+  skipIntro?: boolean;
+  /** Start the countdown automatically once tracking is ready (the player already started this run). */
+  autoStart?: boolean;
 };

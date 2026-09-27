@@ -1,12 +1,16 @@
 "use client";
 import Link from "next/link";
-import { useReducer, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import type { QuestDefinition } from "@/types/quest";
 import type { CompletedSession } from "@/types/progress";
 import { guidedQuestReducer, initialGuidedState } from "@/lib/guidedQuest";
 import { localDateKey, saveCompletedSession } from "@/lib/progressStorage";
 import ExerciseInstructor from "./ExerciseInstructor";
 import RehabWorldGame from "./RehabWorldGame";
+import ExerciseWorld from "./ExerciseWorld";
+import NovaVoiceControl from "./NovaVoiceControl";
+import { Stage, StageActions, StageCenter, StageCoach, StageCounter, StagePanel, StagePrimary, StageTopBar, stageBtn } from "./stage/Stage";
+import { THEMES, demoFor, worldFor } from "@/lib/worldTheme";
 
 export default function GuidedQuest({ definition, onContinue }: { definition: QuestDefinition; onContinue?: () => void }) {
   const [session, dispatch] = useReducer(guidedQuestReducer, initialGuidedState);
@@ -16,6 +20,11 @@ export default function GuidedQuest({ definition, onContinue }: { definition: Qu
   const { instructor, target } = definition;
   const score = session.reps * 100;
   const complete = session.phase === "complete";
+  const [pulse, setPulse] = useState(0);
+  function mark() {
+    dispatch({ type: "mark", target });
+    setPulse((n) => n + 1);
+  }
 
   function saveRecord() {
     if (!recordRef.current) return;
@@ -52,30 +61,90 @@ export default function GuidedQuest({ definition, onContinue }: { definition: Qu
     : session.phase === "ready" ? "This is your own movement moment. Press Start when you're ready; I'll keep you company."
     : session.reps === target ? "You've marked every movement. Choose Complete Quest when you're ready to save your activity."
     : instructor.activeMessage;
+  const world = worldFor(definition);
+  const theme = THEMES[world];
+  const backHref = definition.source === "hep" ? "/quest" : "/explore";
+  const backLabel = definition.source === "hep" ? "My quest" : "Explore";
+  const active = session.phase === "active";
+
+  // Space bar marks a movement too, handy when you're away from the mouse.
+  const markRef = useRef(() => {});
+  useEffect(() => {
+    markRef.current = () => { if (session.phase === "active" && session.reps < target) mark(); };
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== "Space" || (e.target as HTMLElement | null)?.closest?.("button, a, input, textarea, select")) return;
+      e.preventDefault();
+      markRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  if (session.phase === "tutorial") {
+    return (
+      <main id="main-content" tabIndex={-1} className="min-h-screen bg-[#161A30] text-[#F4F6F2]">
+        <ExerciseInstructor mode="tutorial" exercise={instructor} onReady={() => dispatch({ type: "ready" })}
+          world={world} demo={demoFor(definition)}
+          backLink={<Link href={backHref} className="rounded-full bg-[rgba(24,28,54,.55)] px-4 py-2 text-[15px] backdrop-blur-md transition hover:bg-[rgba(24,28,54,.85)]"><span aria-hidden>←</span> Back to {backLabel}</Link>} />
+      </main>
+    );
+  }
+
+  const coach = complete ? { title: theme.done, hint: "Saved as self-reported. Take a breath." }
+    : session.phase === "paused" ? { title: "Paused", hint: "Your marked movements are kept. Resume whenever you're ready." }
+    : session.phase === "ready" ? { title: "Ready when you are", hint: "Press Start, then mark each movement after you finish it." }
+    : session.reps === target ? { title: "All marked", hint: "Choose Complete quest when you're ready to save it." }
+    : { title: "At your own pace", hint: definition.holdSeconds ? `Hold for ${definition.holdSeconds} seconds as your plan says, then mark it.` : "Finish a movement, then mark it. Space works too." };
+
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 px-5 py-8 text-white sm:px-8">
-      <div className="mx-auto max-w-6xl">
-        <nav className="mb-8 flex flex-wrap justify-between gap-4 text-sm text-slate-300"><Link href={definition.source === "hep" ? "/quest" : "/explore"}>← {definition.source === "hep" ? "My HEP" : "Explore"}</Link><div className="flex gap-5"><Link href="/">Home</Link><Link href="/progress">My Progress →</Link></div></nav>
-        {session.phase === "tutorial" ? <ExerciseInstructor mode="tutorial" exercise={instructor} onReady={() => dispatch({ type: "ready" })} /> : <>
-          <header className="mb-7"><p className="text-xs font-semibold uppercase tracking-widest text-cyan-300">{definition.source === "hep" ? "My HEP · Confirmed instructions" : "Explore · General movement"}</p><h1 className="mt-3 text-3xl font-bold sm:text-4xl">{instructor.name}</h1><p className="mt-4 w-fit rounded-full border border-violet-300/30 bg-violet-300/10 px-4 py-2 text-sm text-violet-100">Guided Mode — completion is controlled by you</p><p className="mt-3 text-sm text-slate-400">No camera or microphone is active. Repetitions and form are not verified.</p></header>
-          <ExerciseInstructor mode="session" allowSpeech={session.phase === "active" || complete} exercise={instructor} message={{ id: session.phase, text: message }} />
-          <section className="mb-6 rounded-2xl border border-indigo-300/20 bg-indigo-400/10 p-6">
-            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm text-slate-300">{instructor.targetLabel}</p>{definition.holdSeconds && <p className="mt-2 text-sm text-indigo-200">Follow your prescribed {definition.holdSeconds}-second hold for each repetition. Mark only after completing it; hold timing is self-reported.</p>}<p className="mt-2 text-4xl font-bold" aria-live="polite">{session.reps}<span className="text-xl text-slate-400"> / {target} marked movements</span></p></div><p className="text-sm text-cyan-200">{score} game points · 100 per marked movement</p></div>
-            <div className="mt-5 flex flex-wrap gap-3">
-              {session.phase === "ready" && <button onClick={() => dispatch({ type: "start", id: crypto.randomUUID() })} className="rounded-xl bg-indigo-500 px-6 py-3 font-semibold hover:bg-indigo-400">Start</button>}
-              {session.phase === "active" && <>
-                {session.reps < target ? <button onClick={() => dispatch({ type: "mark", target })} className="rounded-xl bg-cyan-300 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-200">Mark one movement +</button> : <button onClick={finish} className="rounded-xl bg-cyan-300 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-200">Complete Quest</button>}
-                <button onClick={() => dispatch({ type: "pause" })} className="rounded-xl border border-white/20 px-5 py-3">Pause</button>
-              </>}
-              {session.phase === "paused" && <button onClick={() => dispatch({ type: "resume" })} className="rounded-xl bg-indigo-500 px-6 py-3 font-semibold">Resume</button>}
-              {complete && <>{onContinue && <button onClick={onContinue} disabled={saveFailed || !saveMessage} className="rounded-xl bg-cyan-300 px-5 py-3 font-semibold text-slate-950 disabled:opacity-40">Continue quest →</button>}<button onClick={playAgain} className="rounded-xl bg-indigo-500 px-6 py-3 font-semibold">Play Again</button><Link href="/progress" className="rounded-xl border border-cyan-300/30 px-5 py-3 text-cyan-100">View Progress →</Link></>}
-            </div>
-            {complete && <div className="mt-4"><p role="status" className="text-sm text-slate-300">{saveMessage}</p>{saveFailed && <button onClick={saveRecord} className="mt-3 rounded-lg border border-white/20 px-4 py-2">Retry saving</button>}</div>}
-          </section>
-          <RehabWorldGame sessionState={complete ? "complete" : session.phase === "active" ? "active" : "ready"} completedReps={session.reps} targetReps={target} movementProgress="ready" completionMode="manual" />
-          <section className="rounded-2xl border border-white/10 bg-white/5 p-6"><h2 className="font-semibold">Your movement guide</h2><ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-slate-300">{instructor.instructions.map(text => <li key={text}>{text}</li>)}</ul><p className="mt-4 text-xs leading-6 text-slate-400">{instructor.safetyMessage}</p><Link href={definition.source === "hep" ? "/quest" : "/explore"} className="mt-4 inline-block text-sm text-cyan-200">Leave quest →</Link></section>
+    <Stage accent={theme.accent} label={`${instructor.name} guided session`}
+      world={<ExerciseWorld key={`${world}:${target}`} world={world} completed={session.reps} target={target} active={active} pulseKey={pulse}
+        fallback={<RehabWorldGame sessionState={complete ? "complete" : active ? "active" : "ready"} completedReps={session.reps} targetReps={target} movementProgress="ready" completionMode="manual" />} />}>
+      <StageTopBar backHref={backHref} backLabel={backLabel}
+        context={`Guided mode: you mark each movement, nothing is measured. ${score} points.`} />
+
+      <StageCoach eyebrow={instructor.name} quest={theme.quest} title={coach.title} hint={coach.hint} accent={theme.accent}
+        demo={complete ? null : demoFor(definition)}
+        note={definition.source === "hep" ? "From your PT's plan." : instructor.targetLabel}
+        nova={<><p role="status" aria-atomic="true" className="text-[15px] leading-snug opacity-90">{message}</p><div className="mt-2"><NovaVoiceControl compact message={{ id: session.phase, text: message }} allowed={active || complete} /></div></>} />
+
+      {session.phase === "ready" && (
+        <StageCenter>
+          <StagePrimary big onClick={() => dispatch({ type: "start", id: crypto.randomUUID() })} accent={theme.accent} ink={theme.ink}>Start</StagePrimary>
+        </StageCenter>
+      )}
+
+      <StageCounter value={session.reps} target={target} unit={theme.unit} />
+
+      <StageActions>
+        {active && <>
+          <button type="button" onClick={() => dispatch({ type: "pause" })} className={stageBtn}>Pause</button>
+          {session.reps < target
+            ? <StagePrimary big onClick={mark} accent={theme.accent} ink={theme.ink}>Mark one movement</StagePrimary>
+            : <StagePrimary big onClick={finish} accent={theme.accent} ink={theme.ink}>Complete quest</StagePrimary>}
         </>}
-      </div>
-    </main>
+        {session.phase === "paused" && <StagePrimary big onClick={() => dispatch({ type: "resume" })} accent={theme.accent} ink={theme.ink}>Resume</StagePrimary>}
+      </StageActions>
+
+      {complete && (
+        <StagePanel>
+          <p className="text-[15px]" style={{ color: theme.accent }}>{theme.quest}</p>
+          <h2 className="font-display text-4xl font-extrabold tracking-tight">Quest complete</h2>
+          <p className="mt-2 text-[18px] opacity-90">You marked {target} {target === 1 ? "movement" : "movements"} of {instructor.name}.</p>
+          <p role="status" className="mt-4 text-[15px] opacity-85">{saveMessage}</p>
+          {saveFailed && <button type="button" onClick={saveRecord} className="rv-link mt-1 text-[15px]">Retry saving</button>}
+          <div className="mt-6 flex flex-wrap gap-3">
+            {onContinue && <StagePrimary onClick={onContinue} disabled={saveFailed || !saveMessage} accent={theme.accent} ink={theme.ink}>Continue quest →</StagePrimary>}
+            <button type="button" onClick={playAgain} className={onContinue ? "rv-btn rv-btn-ghost" : "rv-btn border-0"} style={onContinue ? undefined : { background: theme.accent, color: theme.ink }}>Play again</button>
+            <Link href="/progress" className="rv-btn rv-btn-ghost">Progress</Link>
+            <Link href={backHref} className="rv-btn rv-btn-ghost">{backLabel}</Link>
+          </div>
+          <details className="mt-5 text-[15px]"><summary className="opacity-80">Your movement guide</summary><ul className="mt-2 grid gap-1.5 opacity-85">{instructor.instructions.map(text => <li key={text}>{text}</li>)}</ul></details>
+          <p className="mt-4 text-[14px] opacity-65">{instructor.safetyMessage}</p>
+        </StagePanel>
+      )}
+    </Stage>
   );
 }

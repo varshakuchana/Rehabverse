@@ -2,7 +2,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { queryExploreCatalog } from "@/lib/exerciseCatalog";
+import { catalogQuest, queryExploreCatalog } from "@/lib/exerciseCatalog";
+import { NovaMark } from "@/components/NovaMark";
+import WorldPostcard from "@/components/WorldPostcard";
+import { THEMES, worldFor } from "@/lib/worldTheme";
 import { isMedicalRequest, MEDICAL_REDIRECT, WELLNESS_LABEL } from "@/lib/exploreSafety";
 import { validateExploreQuest, type ExploreQuest } from "@/lib/exploreQuest";
 import { saveExploreQuest } from "@/lib/exploreQuestStorage";
@@ -40,5 +43,43 @@ export default function ExploreNovaCreator() {
     try { saveExploreQuest(quest); setLaunching(true); router.push("/explore/quest"); }
     catch { setError("Allow browser storage to launch this quest. Built-in experiences are still available below."); }
   }
-  return <section aria-labelledby="nova-create-title" className="mb-12 rounded-3xl border border-cyan-300/30 bg-gradient-to-br from-indigo-500/15 to-cyan-400/5 p-6 sm:p-9"><p className="text-xs font-semibold uppercase tracking-widest text-cyan-300">Your preferences · Our supported library</p><h2 id="nova-create-title" className="mt-3 text-3xl font-bold">Explore with Nova</h2><p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">No exercise plan? Tell Nova what kind of general movement experience you want. Nova selects from our camera-tracked games and Guided fallback—never new exercises or treatment routines.</p><p className="mt-3 text-xs text-cyan-100">{WELLNESS_LABEL}</p><form onSubmit={e => { e.preventDefault(); void create(); }} className="mt-6"><label htmlFor="nova-request" className="block text-sm font-semibold">What kind of movement break would you like?</label><textarea id="nova-request" maxLength={600} rows={3} required disabled={loading || launching} value={prompt} onChange={e => { setPrompt(e.target.value); setQuest(null); setMedical(false); setError(""); }} placeholder="A light upper-body movement break" className="mt-3 w-full rounded-xl border border-indigo-300/30 bg-slate-950/70 p-4 text-white" /><p className="mt-2 text-xs text-slate-400">Your text request goes to Gemini. Please leave out health details and personal information. Camera images and HEP documents are never sent by this creator.</p><button disabled={loading || launching || !prompt.trim()} className="mt-4 rounded-xl bg-cyan-300 px-6 py-3 font-semibold text-slate-950 disabled:opacity-40">{loading ? "Nova is choosing your quest…" : "Create my movement quest"}</button></form>{loading && <p role="status" className="mt-4 text-sm text-slate-300">Checking your preferences against supported experiences…</p>}{error && <p role="alert" className="mt-4 text-sm text-amber-200">{error}</p>}{medical && <div role="status" className="mt-5 rounded-xl border border-indigo-300/30 p-5"><p className="text-sm leading-6">{MEDICAL_REDIRECT}</p><Link href="/hep" className="mt-4 inline-block font-semibold text-cyan-200">Upload in My HEP →</Link></div>}{quest && <div className="mt-6 rounded-2xl border border-white/10 bg-slate-950/40 p-5"><h3 className="text-xl font-semibold">{quest.title}</h3><p className="mt-2 text-sm text-slate-300">{quest.description} Timing is up to you; this is not an exact-duration workout.</p><ol className="mt-4 space-y-3">{quest.exercises.map((step, index) => { const entry = queryExploreCatalog().find(item => item.id === step.exerciseId)!; return <li key={step.exerciseId} className="rounded-xl border border-white/10 p-4"><p className="font-semibold">{index + 1}. {entry.name} · {step.targetReps} movements</p><p className="mt-2 text-xs text-cyan-200">{entry.capability === "interactive" ? "Interactive · Camera tracked" : "Guided · You mark completion"}</p><p className="mt-2 text-sm text-slate-400">{entry.cameraRequirements}</p></li>; })}</ol><button onClick={launch} disabled={launching} className="mt-5 rounded-xl bg-indigo-500 px-6 py-3 font-semibold disabled:opacity-40">{launching ? "Opening quest…" : "Meet Nova & begin →"}</button></div>}</section>;
+  const ideas = ["A gentle upper-body break", "Something for my legs", "A short break I can do seated"];
+  return <section aria-labelledby="nova-create-title" className="rv-glass relative overflow-hidden rounded-[28px] p-7 sm:p-9">
+    <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-[#B69CFF]/25 blur-3xl" />
+    <div className="relative flex items-center gap-3"><NovaMark size={44} /><div><p className="rv-eyebrow">Ask Nova</p><h2 id="nova-create-title" className="font-display text-[clamp(28px,3vw,40px)] font-extrabold leading-none tracking-tight">Build me a quest</h2></div></div>
+    <p className="relative mt-4 max-w-[58ch] text-[17px] leading-snug opacity-90">Tell Nova what kind of movement break you want. Nova only picks from our supported movements, never new exercises or treatment routines.</p>
+    <form onSubmit={e => { e.preventDefault(); void create(); }} className="relative mt-5">
+      <label htmlFor="nova-request" className="block font-display text-lg font-semibold">What would you like?</label>
+      <textarea id="nova-request" maxLength={600} rows={2} required disabled={loading || launching} value={prompt} onChange={e => { setPrompt(e.target.value); setQuest(null); setMedical(false); setError(""); }} placeholder="A light upper-body movement break"
+        className="mt-2 w-full resize-none rounded-2xl border-2 border-white/25 bg-[rgba(12,14,30,.55)] p-4 text-[18px] outline-none transition placeholder:text-white/40 focus:border-[#B69CFF]" />
+      <div className="mt-3 flex flex-wrap gap-2">
+        {ideas.map(idea => (
+          <button key={idea} type="button" disabled={loading || launching} onClick={() => { setPrompt(idea); setQuest(null); setMedical(false); setError(""); }}
+            className="min-h-10 rounded-full border border-white/30 px-4 text-[15px] transition hover:bg-white/10">{idea}</button>
+        ))}
+      </div>
+      <p className="mt-3 text-[14px] opacity-70">Your text goes to Gemini, so leave out health details and personal information. Camera images and plan documents are never sent from here. {WELLNESS_LABEL}</p>
+      <button disabled={loading || launching || !prompt.trim()} className="rv-btn mt-5 border-0 bg-[#B69CFF] text-[#1B1535] hover:brightness-110">{loading ? "Nova is choosing…" : "Create my quest"}</button>
+    </form>
+    {loading && <p role="status" className="rv-busy relative mt-4 text-[16px]">Checking your request against the supported movements…</p>}
+    {error && <p role="alert" className="relative mt-4 text-[16px] text-[#FFD89A]">{error}</p>}
+    {medical && <div role="status" className="relative mt-5 rounded-2xl border border-white/25 bg-white/5 p-5"><p className="text-[16px] leading-snug">{MEDICAL_REDIRECT}</p><Link href="/hep" className="rv-link mt-3 inline-block font-semibold text-[#F2C14E]">Upload your plan instead</Link></div>}
+    {quest && <div className="relative mt-6 rounded-[24px] border border-white/20 bg-[rgba(12,14,30,.5)] p-6">
+      <h3 className="font-display text-2xl font-bold">{quest.title}</h3>
+      <p className="mt-1 text-[16px] opacity-85">{quest.description} Take as long as you like.</p>
+      <ol className="mt-5 grid gap-3">{quest.exercises.map((step, index) => {
+        const entry = queryExploreCatalog().find(item => item.id === step.exerciseId)!;
+        const def = catalogQuest(step.exerciseId, step.targetReps);
+        const world = def ? worldFor(def) : "orbit";
+        return <li key={step.exerciseId} className="grid grid-cols-[96px_1fr] items-center gap-4 overflow-hidden rounded-2xl border border-white/15 bg-white/[.04] pr-4">
+          <div className="h-full min-h-20"><WorldPostcard world={world} /></div>
+          <div className="py-3">
+            <p className="font-display text-lg font-bold">{index + 1}. {entry.name}, {step.targetReps} movements</p>
+            <p className="text-[15px]" style={{ color: THEMES[world].accent }}>{THEMES[world].quest}. {entry.capability === "interactive" ? "Camera counts them." : "You mark each one."}</p>
+          </div>
+        </li>;
+      })}</ol>
+      <button onClick={launch} disabled={launching} className="rv-btn rv-btn-primary mt-5">{launching ? "Opening quest…" : "Meet Nova and begin →"}</button>
+    </div>}
+  </section>;
 }

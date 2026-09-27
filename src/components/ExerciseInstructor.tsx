@@ -2,13 +2,17 @@
 
 import { NovaMark } from "./NovaMark";
 import NovaVoiceControl from "./NovaVoiceControl";
+import DemoFigure, { type DemoKind } from "./DemoFigure";
+import { THEMES } from "@/lib/worldTheme";
+import type { WorldKind } from "@/lib/rehabWorld/worlds";
+import type { CSSProperties, ReactNode } from "react";
 import { formatPrescription, type InstructorExercise, type InstructorMessage } from "@/lib/exerciseInstructor";
 
 type ExerciseInstructorProps = {
   exercise: InstructorExercise;
   allowSpeech?: boolean;
 } & (
-  | { mode: "tutorial"; onReady: () => void }
+  | { mode: "tutorial"; onReady: () => void; world?: WorldKind; demo?: DemoKind | null; backLink?: ReactNode; beforeSteps?: ReactNode; readyLabel?: string }
   | { mode: "session"; message: InstructorMessage }
 );
 
@@ -35,47 +39,65 @@ export default function ExerciseInstructor(props: ExerciseInstructorProps) {
     );
   }
 
+  const theme = props.world ? THEMES[props.world] : null;
+  const accent = theme?.accent ?? "#F2C14E";
+  const ink = theme?.ink ?? "#2A2410";
+  const dose = formatPrescription(exercise.prescription);
   const steps = [
     { title: "Find your starting position", text: exercise.positioning, detail: exercise.cameraRequirements },
-    { title: "Bring the world to life", text: exercise.gameDescription },
+    { title: "Bring the world to life", text: theme ? `${theme.goal}` : exercise.gameDescription },
     { title: "Start when you're ready", text: exercise.startInstruction },
   ];
 
   return (
-    <section aria-labelledby="tutorial-title" className="rv-glass mx-auto max-w-5xl overflow-hidden rounded-[28px] shadow-2xl shadow-indigo-950/50">
-      <div className="grid lg:grid-cols-[.85fr_1.15fr]">
-        <div className="border-b border-white/10 bg-gradient-to-br from-indigo-500/20 via-violet-500/10 to-cyan-400/5 p-7 sm:p-10 lg:border-b-0 lg:border-r">
-          <NovaAvatar />
-          <NovaVoiceControl />
-          <p className="mt-6 text-xs font-semibold uppercase tracking-[.2em] text-cyan-200">Meet Nova · Your quest companion</p>
-          <h1 id="tutorial-title" className="mt-4 font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">A little movement.<br />A little magic.</h1>
-          <p className="mt-5 leading-7 text-slate-300">I&apos;ll help you get set up and keep you company as you restore your world. Let&apos;s get familiar with this quest.</p>
-          <div className="mt-8 rounded-2xl border border-white/10 bg-slate-950/40 p-5">
-            <p className="text-xs uppercase tracking-widest text-slate-400">{exercise.targetLabel ?? "Your movement"}</p>
-            <h2 className="mt-2 text-xl font-semibold text-white">{exercise.name}</h2>
-            <p className="mt-3 text-lg font-medium text-cyan-200">{formatPrescription(exercise.prescription)}</p>
+    <section aria-labelledby="tutorial-title" className="relative isolate min-h-screen overflow-hidden text-[#F4F6F2]" style={{ "--rv-accent": accent } as CSSProperties}>
+      <div aria-hidden className="absolute inset-0 -z-10" style={{ background: theme?.skyDim ?? "linear-gradient(180deg,#1E2240,#34355E 55%,#6A5C7D)" }} />
+      <div aria-hidden className="absolute inset-0 -z-10 opacity-40" style={{ background: `radial-gradient(55% 45% at 72% 62%, ${accent}, transparent 70%)` }} />
+
+      <div className="mx-auto grid min-h-screen max-w-6xl content-center gap-6 px-5 py-10 lg:grid-cols-[1.1fr_.9fr]">
+        <div>
+          {props.backLink}
+          <p className="mt-6 flex items-center gap-3 text-[16px]"><NovaMark size={34} /><span>Nova, your quest companion</span></p>
+          <h1 id="tutorial-title" className="mt-4 font-display text-[clamp(42px,6vw,78px)] font-extrabold leading-[.95] tracking-tight">{theme?.quest ?? "A little movement, a little magic"}</h1>
+          <p className="mt-4 max-w-[46ch] text-[19px] leading-snug opacity-90">{theme?.goal ?? exercise.gameDescription}</p>
+
+          <div className="mt-8 rounded-3xl border border-white/20 bg-[rgba(24,28,54,.72)] p-6 backdrop-blur-md">
+            <p className="text-[15px] opacity-75">{exercise.targetLabel ?? "Your movement"}</p>
+            <h2 className="mt-1 font-display text-2xl font-bold">{exercise.name}</h2>
+            {dose && <p className="mt-1 text-[18px] font-semibold" style={{ color: accent }}>{dose}</p>}
+            <ul className="mt-4 grid gap-2 text-[17px] leading-snug">
+              {exercise.instructions.map((line) => (
+                <li key={line} className="flex gap-3"><span aria-hidden style={{ color: accent }}>•</span><span className="opacity-90">{line}</span></li>
+              ))}
+            </ul>
           </div>
-          <ul className="mt-6 space-y-3 text-sm leading-6 text-slate-300">
-            {exercise.instructions.map((instruction) => <li key={instruction} className="flex gap-3"><span aria-hidden="true" className="text-cyan-300">✦</span>{instruction}</li>)}
-          </ul>
         </div>
-        <div className="p-7 sm:p-10">
-          <p className="mb-7 text-xs font-semibold uppercase tracking-[.2em] text-indigo-300">Before we begin</p>
-          <ol className="space-y-7">
-            {steps.map((step, index) => (
-              <li key={step.title} className="flex gap-4">
-                <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-indigo-300/20 bg-indigo-400/10 text-xs text-indigo-200">0{index + 1}</span>
+
+        <div className="flex flex-col rounded-[28px] border border-white/20 bg-[rgba(24,28,54,.82)] p-7 backdrop-blur-md">
+          {props.demo && (
+            <div className="grid place-items-center rounded-2xl bg-black/20 py-4">
+              <DemoFigure demo={props.demo} accent={accent} size={150} />
+              <p className="mt-1 text-[15px] opacity-70">How the movement looks</p>
+            </div>
+          )}
+          {props.beforeSteps}
+          <ol className="mt-6 grid gap-4 text-[17px] leading-snug">
+            {steps.map((step, i) => (
+              <li key={step.title} className="flex gap-3">
+                <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-full font-display font-bold" style={{ background: accent, color: ink }}>{i + 1}</span>
                 <div>
-                  <h3 className="font-semibold text-slate-100">{step.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">{step.text}</p>
-                  {step.detail && <p className="mt-2 text-sm leading-6 text-cyan-200/80">{step.detail}</p>}
+                  <b className="font-display">{step.title}.</b> <span className="opacity-85">{step.text}</span>
+                  {step.detail && <span className="mt-1 block text-[15px] opacity-70">{step.detail}</span>}
                 </div>
               </li>
             ))}
           </ol>
-          <p className="mt-8 rounded-xl border border-amber-200/10 bg-amber-200/5 p-4 text-sm leading-6 text-amber-100/80">{exercise.safetyMessage}</p>
-          <button onClick={props.onReady} className="rv-btn rv-btn-primary mt-7 w-full">I&apos;m Ready <span aria-hidden="true">→</span></button>
-          <p className="mt-3 text-center text-xs leading-5 text-slate-400">{exercise.nextStepMessage ?? "Next: enable your camera and get into position."}</p>
+          <p className="mt-5 rounded-2xl border border-white/15 bg-white/5 p-4 text-[15px] leading-snug">{exercise.safetyMessage}</p>
+          <div className="mt-4"><NovaVoiceControl /></div>
+          <button type="button" onClick={props.onReady} className="rv-btn rv-btn-big mt-6 w-full border-0" style={{ background: accent, color: ink }}>
+            {props.readyLabel ?? "I'm Ready"} <span aria-hidden>→</span>
+          </button>
+          <p className="mt-3 text-center text-[15px] opacity-70">{exercise.nextStepMessage ?? "Next: enable your camera and get into position."}</p>
         </div>
       </div>
     </section>

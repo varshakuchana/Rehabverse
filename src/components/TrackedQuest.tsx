@@ -10,6 +10,10 @@ import type { QuestDefinition } from "@/types/quest";
 import ExerciseInstructor from "@/components/ExerciseInstructor";
 import { getInstructorMessage } from "@/lib/exerciseInstructor";
 import RehabWorldGame from "@/components/RehabWorldGame";
+import ExerciseWorld from "@/components/ExerciseWorld";
+import NovaVoiceControl from "@/components/NovaVoiceControl";
+import { Stage, StageActions, StageCenter, StageCoach, StageCountdown, StageCounter, StagePanel, StagePip, StagePrimary, StageTopBar, stageBtn } from "@/components/stage/Stage";
+import { THEMES, demoFor, worldFor } from "@/lib/worldTheme";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useHandsFreeStart } from "@/hooks/useHandsFreeStart";
 import {
@@ -35,15 +39,43 @@ function SessionWorldSlot({ presentation, state }: { presentation: SessionPresen
 
 export default function TrackedQuest({ definition, onContinue, presentation }: { definition: QuestDefinition; onContinue?: () => void; presentation?: SessionPresentation }) {
   const [trackedSide, setTrackedSide] = useState<TrackedSide>(definition.trackedSide ?? "left");
-  const [tutorialComplete, setTutorialComplete] = useState(false);
+  const [tutorialComplete, setTutorialComplete] = useState(Boolean(presentation?.skipIntro));
   if (tutorialComplete) return <MovementQuestSession definition={{ ...definition, trackedSide }} onContinue={onContinue} presentation={presentation} />;
+  const backHref = presentation ? "/story" : definition.source === "hep" ? "/quest" : "/explore";
+  const backLabel = presentation ? "Pause" : definition.source === "hep" ? "My quest" : "Explore";
+  const world = presentation ? undefined : worldFor(definition);
+  const accent = world ? THEMES[world].accent : "#F2C14E";
+  const armPicker = definition.detectorId?.startsWith("shoulder") ? (
+          <fieldset className="mt-5 rounded-2xl border border-white/20 p-4">
+            <legend className="px-2 font-display font-semibold">Which arm will you move?</legend>
+            <p className="mb-3 text-[15px] opacity-80">Use this arm the whole time. Follow any side your plan specifies.</p>
+            <div className="flex gap-2">
+              {(["left", "right"] as const).map(side => (
+                <label key={side} className="relative cursor-pointer">
+                  <input type="radio" name="tracked-side" className="peer sr-only" checked={trackedSide === side} onChange={() => setTrackedSide(side)} />
+                  <span className="grid min-h-12 min-w-28 place-items-center rounded-full border-2 border-white/40 px-5 font-display font-semibold capitalize transition peer-checked:text-[#1b1535] peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-[#F2C14E]"
+                    style={trackedSide === side ? { background: accent, borderColor: accent } : undefined}>{side} arm</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+) : undefined;
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 px-5 py-8 text-white sm:px-8">
-      <div className="mx-auto mb-8 max-w-5xl">
-        <Link onClick={event => { if (presentation) { event.preventDefault(); presentation.onExit(); } }} href={presentation ? "/story" : definition.source === "hep" ? "/quest" : "/explore"} className="text-sm text-slate-400 hover:text-white">← Back to {presentation ? "World Map" : definition.source === "hep" ? "My Quest" : "Explore"}</Link>
-      </div>
-      {definition.detectorId?.startsWith("shoulder") && <fieldset className="mx-auto mb-6 max-w-5xl rounded-xl border border-white/20 p-5"><legend className="px-2">Which arm will you move?</legend><p className="mb-3 text-sm text-slate-300">Use your selected arm throughout. Follow any side specified in your HEP.</p>{(["left", "right"] as const).map(side => <label key={side} className="mr-6 inline-flex items-center gap-2 capitalize"><input type="radio" name="tracked-side" checked={trackedSide === side} onChange={() => setTrackedSide(side)} />{side}</label>)}</fieldset>}
-      <ExerciseInstructor mode="tutorial" exercise={definition.instructor} onReady={() => setTutorialComplete(true)} />
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-[#161A30] text-[#F4F6F2]">
+      <ExerciseInstructor
+        mode="tutorial"
+        exercise={definition.instructor}
+        onReady={() => setTutorialComplete(true)}
+        world={world}
+        demo={demoFor(definition)}
+        backLink={
+          <Link onClick={event => { if (presentation) { event.preventDefault(); presentation.onExit(); } }} href={backHref}
+            className="rounded-full bg-[rgba(24,28,54,.55)] px-4 py-2 text-[15px] backdrop-blur-md transition hover:bg-[rgba(24,28,54,.85)]">
+            <span aria-hidden>←</span> Back to {backLabel}
+          </Link>
+        }
+        beforeSteps={armPicker}
+      />
     </main>
   );
 }
@@ -322,6 +354,23 @@ function MovementQuestSession({ definition, onContinue, presentation }: { defini
   useLayoutEffect(() => {
     processMovementRef.current = processMovement;
   });
+
+  // Story: after the first stage the camera comes back on by itself (permission is already granted).
+  // Story: later stages start their own countdown as soon as the player is in view.
+  const autoCountdownRef = useRef(false);
+  useEffect(() => {
+    if (!presentation?.autoStart || autoCountdownRef.current || sessionState !== "ready") return;
+    autoCountdownRef.current = true;
+    startSession();
+  }, [presentation?.autoStart, sessionState, startSession]);
+  const autoStartedRef = useRef(false);
+  const startCameraRef = useRef(async () => {});
+  useEffect(() => { startCameraRef.current = startCamera; });
+  useEffect(() => {
+    if (!presentation?.autoCamera || autoStartedRef.current || !modelReady || cameraActive || cameraStarting) return;
+    autoStartedRef.current = true;
+    void startCameraRef.current();
+  }, [presentation?.autoCamera, modelReady, cameraActive, cameraStarting]);
 
   async function startCamera() {
     if (openingCameraRef.current || streamRef.current) return;
@@ -677,355 +726,125 @@ function MovementQuestSession({ definition, onContinue, presentation }: { defini
     }
   }
 
-  const progress = Math.min(
-    (reps / target) * 100,
-    100
-  );
+  const trackingReady = cameraActive && bodyDetected && movementAngle !== null;
+  const active = sessionState === "active";
+  const world = worldFor(definition);
+  const theme = THEMES[world];
+  const accent = presentation ? "#F2C14E" : theme.accent;
+  const ink = presentation ? "#2A2410" : theme.ink;
+  const novaMessage = getInstructorMessage({ exercise: instructor, sessionState, trackingReady, movementPhase });
+  const backHref = presentation ? "/story" : definition.source === "hep" ? "/quest" : "/explore";
+  const backLabel = presentation ? "Pause" : definition.source === "hep" ? "My quest" : "Explore";
+  const onBack = (event: React.MouseEvent<HTMLAnchorElement>) => { if (presentation) { event.preventDefault(); presentation.onExit(); } };
+  const armNote = detectorId !== "knee_flexion" ? `Tracking your ${definition.trackedSide} arm, ${detectorId === "shoulder_flexion" ? "side-on to the camera" : "facing the camera"}.` : undefined;
+  const verbs = world === "well"
+    ? { moving: "Down into the well", returning: "Haul it up" }
+    : { moving: "Wings up", returning: "Now let it fly" };
+
+  const coach = sessionState === "complete" ? { title: theme.done, hint: `You finished all ${target}. Take a breath.` }
+    : sessionState === "countdown" ? { title: "Get ready", hint: "Movements count after GO." }
+    : active && !bodyDetected ? { title: "Tracking paused", hint: `Your ${reps} ${reps === 1 ? "movement is" : "movements are"} kept. ${detector.cameraRequirements}` }
+    : active ? { title: movementPhase === "moving" ? verbs.moving : movementPhase === "returning" ? verbs.returning : "Your turn", hint: feedback }
+    : sessionState === "ready" ? { title: "Ready when you are", hint: 'Say "Start" or "Begin", or press Start.' }
+    : cameraActive ? { title: "Step into view", hint: detector.cameraRequirements }
+    : modelFailed ? { title: "Tracking didn't load", hint: "Check your connection and retry, or pick a Guided quest." }
+    : { title: "Turn on your camera", hint: detector.positioning };
+
+  const worldNode = presentation
+    ? <div className="rv-stage-story absolute inset-0"><SessionWorldSlot presentation={presentation} state={{ sessionState, reps, target, movementPhase, bodyDetected, landmarks: landmarksRef }} /></div>
+    : <ExerciseWorld key={`${world}:${target}`} world={world} completed={reps} target={target} active={active} phase={movementPhase} bodyReady={trackingReady} landmarks={landmarksRef}
+        fallback={<RehabWorldGame sessionState={sessionState} completedReps={reps} targetReps={target} movementProgress={movementPhase} />} />;
+
+  const voiceLine = !cameraActive || active || sessionState === "complete" ? "" :
+    !voiceSupported ? "Voice start isn't supported in this browser. Use Start." :
+    microphoneError || (voiceListening ? 'Listening for "Start"' : "Voice start is off.");
 
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 px-6 py-8 text-white">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <Link
-            onClick={event => { if (presentation) { event.preventDefault(); presentation.onExit(); } }}
-            href={presentation ? "/story" : definition.source === "hep" ? "/quest" : "/explore"}
-            className="text-sm text-slate-400 transition hover:text-white"
-          >
-            ← Back to {presentation ? "World Map" : definition.source === "hep" ? "My Quest" : "Explore"}
-          </Link>
+    <Stage accent={accent} label={`${instructor.name} session`} world={worldNode} plain={Boolean(presentation)}>
+      <StageTopBar backHref={backHref} backLabel={backLabel} onBack={onBack}
+        context={presentation ? "Story Mode. General movement game, not treatment." : `${definition.source === "hep" ? "From your PT's plan" : "Explore, not a prescription"}. Score ${score}.`} />
 
-          <div className="rounded-full border border-indigo-400/30 bg-indigo-400/10 px-4 py-2 text-sm text-indigo-200">
-            {presentation ? "Story Mode" : definition.source === "hep" ? "My HEP" : "Explore"} · Interactive
-          </div>
-        </div>
-
-        <div className="mb-8">
-          <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-indigo-400">
-            {presentation ? "The Shattered Realms · Motion ability" : "RehabVerse Session"}
+      {!presentation && (
+        <StageCoach eyebrow={instructor.name} quest={theme.quest} title={coach.title} hint={coach.hint} note={armNote}
+          accent={accent} demo={sessionState === "complete" ? null : demoFor(definition)}
+          nova={<><p role="status" aria-atomic="true" className="text-[15px] leading-snug opacity-90">{novaMessage.text}</p><div className="mt-2"><NovaVoiceControl compact message={novaMessage} allowed={active || sessionState === "complete"} /></div></>} />
+      )}
+      <StagePip>
+        <video ref={videoRef} aria-label="Live movement camera" autoPlay playsInline muted className={`absolute inset-0 h-full w-full object-cover ${cameraActive ? "block" : "hidden"}`} />
+        <canvas ref={canvasRef} aria-hidden="true" className={`pointer-events-none absolute inset-0 h-full w-full object-cover ${cameraActive ? "block" : "hidden"}`} />
+        {!cameraActive && (
+          <p role="status" className="absolute inset-0 grid place-items-center p-4 text-center text-[15px] opacity-80">
+            {cameraStarting ? "Opening camera… answer the permission prompt." : modelFailed ? "Pose tracking didn't load" : modelReady ? "Camera is off" : "Loading pose tracking…"}
           </p>
-
-          <h1 className="text-3xl font-bold sm:text-4xl">
-            {instructor.name}
-          </h1>
-
-          {detectorId !== "knee_flexion" && <p className="mt-3 text-sm text-cyan-200">Tracking your {definition.trackedSide} arm · {detectorId === "shoulder_flexion" ? "Side-on camera view" : "Face the camera"}</p>}
-          <p className="mt-3 max-w-2xl text-slate-400">
-            {detector.cameraRequirements}
-          </p>
-        </div>
-
-        {presentation && <SessionWorldSlot presentation={presentation} state={{ sessionState, reps, target, movementPhase, bodyDetected, landmarks: landmarksRef }} />}
-
-        <ExerciseInstructor
-          mode="session"
-          allowSpeech={sessionState === "active" || sessionState === "complete"}
-          exercise={instructor}
-          message={getInstructorMessage({
-            exercise: instructor,
-            sessionState,
-            trackingReady: cameraActive && bodyDetected && movementAngle !== null,
-            movementPhase: movementPhase,
-          })}
-        />
-
-        <section className="mb-8 rounded-2xl border border-indigo-400/30 bg-indigo-400/10 p-6">
-          <p aria-live="polite" className="text-3xl font-bold">
-            {sessionState === "complete" ? "Session complete!" :
-              sessionState === "countdown" ? countdown :
-              sessionState === "active" ? (bodyDetected ? "GO!" : "Tracking paused") :
-              sessionState === "ready" ? "READY" :
-              cameraActive ? "Adjust your camera position" : "Enable Camera to get started"}
-          </p>
-          <p className="mt-3 text-slate-300">
-            {sessionState === "active" && !bodyDetected
-              ? `Completed movements are kept. Return to your starting position. ${detector.cameraRequirements}`
-              : sessionState === "ready" ? `Say "Start" when you're ready`
-              : sessionState === "complete" ? `You completed ${target} movements.`
-              : "Say start or begin, or use Start. Movements count after GO."}
-          </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            {(sessionState === "ready" || sessionState === "positioning") && (
-              <button onClick={startSession} disabled={sessionState !== "ready"}
-                className="rounded-xl bg-indigo-500 px-6 py-3 font-semibold hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-40">
-                Start
-              </button>
-            )}
-            {!presentation && sessionState === "complete" && (
-              <button onClick={playAgain} className="rounded-xl bg-indigo-500 px-6 py-3 font-semibold hover:bg-indigo-400">
-                Play Again
-              </button>
-            )}
-            {cameraActive && (sessionState === "ready" || sessionState === "positioning") && (
-              <>
-                {voiceSupported && !voiceListening && (
-                  <button onClick={restartVoiceListening} className="rounded-xl border border-white/20 px-4 py-3">
-                    Enable voice start
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-          {cameraActive && (
-            <>
-              <p role="status" className="mt-3 text-sm text-slate-300">
-                {!voiceSupported ? "Voice start is not supported in this browser. Use the Start button when tracking is ready." : microphoneError || (voiceListening ? 'Listening for "Start"' : "Voice start is not listening. Enable voice start or use Start.")}
-              </p>
-
-            </>
-          )}
-        </section>
-
-        {!presentation && sessionState === "complete" && (
-          <div className="mb-6 rounded-xl border border-cyan-300/20 bg-cyan-300/5 p-4">
-            <p role="status" className="text-sm text-slate-200">{saveMessage}</p>
-            {saveFailed && <button onClick={persistCompletion} className="mt-3 rounded-lg bg-indigo-500 px-4 py-2">Retry saving</button>}
-            {onContinue && <button onClick={onContinue} disabled={saveFailed || !saveMessage} className="mt-4 rounded-xl bg-cyan-300 px-5 py-3 font-semibold text-slate-950 disabled:opacity-40">Continue quest →</button>}
-            <Link href="/progress" className="mt-3 block text-sm text-cyan-200">View Progress →</Link>
-          </div>
         )}
-
-        {!presentation && <RehabWorldGame
-          sessionState={sessionState}
-          completedReps={reps}
-          targetReps={target}
-          movementProgress={movementPhase}
-        />}
-
-        <div className={`grid gap-6 ${presentation && sessionState === "active" ? "mx-auto max-w-xl" : "lg:grid-cols-[2fr_1fr]"}`}>
-          <section className="overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
-              <div>
-                <h2 className="font-semibold">
-                  Movement Camera
-                </h2>
-
-                <p className="mt-1 text-xs text-slate-400">
-                  {detector.cameraRequirements}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <div
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    modelReady
-                      ? "bg-indigo-500/20 text-indigo-300"
-                      : "bg-amber-500/20 text-amber-300"
-                  }`}
-                >
-                  {modelReady
-                    ? "Tracker loaded"
-                    : modelFailed ? "Tracking unavailable" : "Loading tracking…"}
-                </div>
-
-                <div
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    cameraActive
-                      ? "bg-green-500/20 text-green-300"
-                      : "bg-slate-700 text-slate-300"
-                  }`}
-                >
-                  {cameraActive
-                    ? "Camera Active"
-                    : "Camera Off"}
-                </div>
+        {cameraActive && (
+          <p className="absolute bottom-2 left-2 rounded-full bg-[rgba(21,26,46,.82)] px-3 py-1 text-[13px]">
+            {bodyDetected ? "Tracking you" : "Show the joints it needs"}{active && bodyDetected ? `, ${phaseLabel().toLowerCase()}` : ""}
+          </p>
+        )}
+      </StagePip>
+      {(voiceLine || cameraError) && (
+        <div className="absolute right-5 top-[calc(4rem+min(13.5vw,202px)+14px)] z-10 w-[clamp(200px,24vw,360px)] space-y-2 text-[14px]">
+          {voiceLine && <p role="status" className="rounded-2xl bg-[rgba(24,28,54,.72)] px-4 py-2 backdrop-blur-md">{voiceLine}</p>}
+          {cameraError && (
+            <div role="alert" className="rounded-2xl border border-[#FFB4A8]/40 bg-[rgba(60,24,30,.85)] px-4 py-3 backdrop-blur-md">
+              <p>{cameraError}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                {modelFailed && <button type="button" onClick={() => { setModelFailed(false); setCameraError(""); setModelRetry(value => value + 1); }} className="rv-link">Retry tracking</button>}
+                {!presentation && <Link href="/explore" className="rv-link">Try a Guided quest</Link>}
               </div>
             </div>
-
-            <div className={`relative overflow-hidden bg-slate-950 ${cameraActive ? "aspect-video" : "min-h-80 sm:aspect-video"}`}>
-              <video
-                ref={videoRef}
-                aria-label="Live movement camera"
-                autoPlay
-                playsInline
-                muted
-                className={`absolute inset-0 h-full w-full object-contain ${
-                  cameraActive
-                    ? "block"
-                    : "hidden"
-                }`}
-              />
-
-              <canvas
-                ref={canvasRef}
-                aria-hidden="true"
-                className={`pointer-events-none absolute inset-0 h-full w-full object-contain ${
-                  cameraActive
-                    ? "block"
-                    : "hidden"
-                }`}
-              />
-
-              {!cameraActive && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
-                  <div className="mb-4 text-6xl">
-                    📷
-                  </div>
-
-                  <h3 role="status" className="mb-2 text-xl font-semibold">
-                    {cameraStarting ? "Opening camera…" : "Camera is off"}
-                  </h3>
-
-                  <p className="mb-6 max-w-md text-sm leading-6 text-slate-400">
-                    {cameraStarting ? "Respond to the camera permission prompt in your browser. Keep this page open while the camera starts." : "Enable your camera so RehabVerse can track your movement."}
-                  </p>
-
-                  <button
-                    onClick={
-                      startCamera
-                    }
-                    disabled={
-                      !modelReady || cameraStarting
-                    }
-                    className={`rounded-xl px-6 py-3 font-semibold transition disabled:opacity-50 ${
-                      modelReady
-                        ? "bg-indigo-500 hover:bg-indigo-400"
-                        : "cursor-not-allowed bg-slate-700 text-slate-400"
-                    }`}
-                  >
-                    {cameraStarting ? "Opening camera…" : modelFailed ? "Tracking unavailable" : modelReady ? "Enable Camera" : "Loading tracking…"}
-                  </button>
-                </div>
-              )}
-
-              {cameraActive && (
-                <>
-                  <div className="absolute left-2 top-2">
-                    <div
-                      className={`rounded-full px-4 py-2 text-sm font-semibold backdrop-blur ${
-                        bodyDetected
-                          ? "bg-green-500/20 text-green-200"
-                          : "bg-amber-500/20 text-amber-200"
-                      }`}
-                    >
-                      {bodyDetected
-                        ? "✓ Tracking Ready"
-                        : "Show the required landmarks"}
-                    </div>
-                  </div>
-
-                  <div className="absolute bottom-2 right-2 max-w-[90%] rounded-xl bg-indigo-500/20 px-4 py-3 text-right backdrop-blur">
-                    <p className="text-xs uppercase tracking-wider text-indigo-200">
-                      Movement
-                    </p>
-
-                    <p className="font-bold">
-                      {phaseLabel()}
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {cameraError && (
-              <div role="alert" className="border-t border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">
-                <p>{cameraError}</p>
-                <div className="mt-3 flex flex-wrap gap-4">
-                  {modelFailed && <button onClick={() => { setModelFailed(false); setCameraError(""); setModelRetry(value => value + 1); }} className="rounded-lg border border-white/20 px-3 py-2 text-white">Retry tracking</button>}
-                  <Link href="/explore" className="self-center text-cyan-200 underline">Try a Guided quest →</Link>
-                </div>
-              </div>
-            )}
-
-            {cameraActive && (
-              <div className="flex justify-end border-t border-white/10 p-4">
-                <button
-                  onClick={
-                    stopCamera
-                  }
-                  className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 transition hover:bg-slate-800"
-                >
-                  Turn Off Camera
-                </button>
-              </div>
-            )}
-          </section>
-
-          {presentation && <p className="text-sm leading-6 text-amber-100/80">{instructor.safetyMessage}</p>}
-          {!presentation && <aside className="space-y-5">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-              <p className="text-sm text-slate-400">
-                Movement Status
-              </p>
-
-              <p
-                className={`mt-2 text-xl font-semibold ${
-                  movementPhase ===
-                  "returning"
-                    ? "text-green-300"
-                    : "text-white"
-                }`}
-              >
-                {phaseLabel()}
-              </p>
-
-              <p className="mt-3 text-sm leading-6 text-slate-400">
-                {feedback}
-              </p>
-
-
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-              <p className="text-sm text-slate-400">
-                Completed Movements
-              </p>
-
-              <p className="mt-2 text-5xl font-bold">
-                {reps}
-
-                <span className="text-xl text-slate-500">
-                  /{target}
-                </span>
-              </p>
-
-              <div role="progressbar" aria-label="Completed movements" aria-valuemin={0} aria-valuemax={target} aria-valuenow={reps} className="mt-5 h-2 overflow-hidden rounded-full bg-slate-800">
-                <div
-                  className="h-full rounded-full bg-indigo-500 transition-all duration-300"
-                  style={{
-                    width: `${progress}%`,
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-              <p className="text-sm text-slate-400">
-                Game Score
-              </p>
-
-              <p className="mt-2 text-3xl font-bold">
-                {score}
-              </p>
-
-              <p className="mt-3 text-xs text-slate-500">
-                +100 for each completed
-                movement
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">
-                Adaptive tracking
-              </p>
-
-              <p className="mt-2 text-sm leading-6 text-cyan-100/80">
-                RehabVerse recognizes a
-                controlled movement and return
-                relative to your observed
-                starting position instead of
-                requiring one fixed movement
-                depth.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-5">
-              <p className="text-sm leading-6 text-amber-100/80">
-                {instructor.safetyMessage}
-              </p>
-            </div>
-          </aside>}
+          )}
         </div>
-      </div>
-    </main>
+      )}
+
+      {sessionState === "ready" && !presentation?.autoStart && (
+        <StageCenter>
+          <div className="flex flex-wrap items-center justify-center gap-4 rounded-full border border-white/25 bg-[rgba(24,28,54,.84)] py-3 pl-7 pr-3 backdrop-blur-md">
+            <p className="font-display text-xl font-semibold">{voiceListening ? <>Say <span style={{ color: accent }}>&ldquo;Start&rdquo;</span> or</> : "Ready?"}</p>
+            <StagePrimary onClick={startSession} accent={accent} ink={ink}>Start</StagePrimary>
+          </div>
+        </StageCenter>
+      )}
+      {sessionState === "countdown" && countdown !== null && <StageCountdown value={countdown} accent={accent} />}
+
+      {!presentation && (
+        <StageCounter value={reps} target={target} unit={theme.unit} />
+      )}
+
+      <StageActions>
+        {presentation && <div className="rounded-full bg-[rgba(24,28,54,.72)] p-1.5 backdrop-blur-md"><NovaVoiceControl compact message={novaMessage} allowed={active || sessionState === "complete"} /></div>}
+        {cameraActive && voiceSupported && !voiceListening && (sessionState === "ready" || sessionState === "positioning") && (
+          <button type="button" onClick={restartVoiceListening} className={stageBtn}>Listen for &ldquo;Start&rdquo;</button>
+        )}
+        {cameraActive && sessionState === "positioning" && !presentation?.autoStart && (
+          <button type="button" onClick={startSession} disabled className={stageBtn}>Start</button>
+        )}
+        {cameraActive ? (
+          sessionState !== "complete" && <button type="button" onClick={stopCamera} className={stageBtn}>Turn off camera</button>
+        ) : (
+          <StagePrimary onClick={startCamera} disabled={!modelReady || cameraStarting || modelFailed} accent={accent} ink={ink} big>
+            {cameraStarting ? "Opening camera…" : modelFailed ? "Tracking unavailable" : modelReady ? "Turn on camera" : "Loading tracking…"}
+          </StagePrimary>
+        )}
+      </StageActions>
+
+      {!presentation && sessionState === "complete" && (
+        <StagePanel>
+          <p className="text-[15px]" style={{ color: accent }}>{theme.quest}</p>
+          <h2 className="font-display text-4xl font-extrabold tracking-tight">Quest complete</h2>
+          <p className="mt-2 text-[18px] opacity-90">You finished {target} {target === 1 ? "movement" : "movements"} of {instructor.name}.</p>
+          <p role="status" className="mt-4 text-[15px] opacity-85">{saveMessage}</p>
+          {saveFailed && <button type="button" onClick={persistCompletion} className="rv-link mt-1 text-[15px]">Retry saving</button>}
+          <div className="mt-6 flex flex-wrap gap-3">
+            {onContinue && <StagePrimary onClick={onContinue} disabled={saveFailed || !saveMessage} accent={accent} ink={ink}>Continue quest →</StagePrimary>}
+            <button type="button" onClick={playAgain} className={onContinue ? "rv-btn rv-btn-ghost" : "rv-btn border-0"} style={onContinue ? undefined : { background: accent, color: ink }}>Play again</button>
+            <Link href="/progress" className="rv-btn rv-btn-ghost">Progress</Link>
+            <Link href={backHref} className="rv-btn rv-btn-ghost">{backLabel}</Link>
+          </div>
+          <p className="mt-5 text-[14px] opacity-65">{instructor.safetyMessage}</p>
+        </StagePanel>
+      )}
+    </Stage>
   );
 }

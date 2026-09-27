@@ -2,15 +2,21 @@
 import type { InstructorMessage } from "@/lib/exerciseInstructor";
 import { useNovaVoice } from "@/hooks/useNovaVoice";
 
-export default function NovaVoiceControl({ message = null, allowed = false }: { message?: InstructorMessage | null; allowed?: boolean }) {
+/* Same behavior as before (preference, gating, cancellation); restyled as pills. */
+export default function NovaVoiceControl({ message = null, allowed = false, compact = false }: { message?: InstructorMessage | null; allowed?: boolean; compact?: boolean }) {
   const voice = useNovaVoice(message, allowed);
-  return <div className="mt-3 text-xs">
+  const pill = "min-h-9 rounded-full border px-3.5 text-[14px] font-semibold transition";
+  return <div className={compact ? "text-[14px]" : "mt-3 text-[14px]"}>
     <div className="flex flex-wrap items-center gap-2">
-      <button type="button" aria-pressed={voice.enabled} aria-label={`Nova voice ${voice.enabled ? "on" : "off"}`} onClick={voice.toggle} className="rounded-lg border border-cyan-200/25 px-3 py-2 text-cyan-100 hover:bg-cyan-200/10 focus-visible:outline-2 focus-visible:outline-cyan-200">Voice {voice.enabled ? "On" : "Off"}</button>
-      {voice.busy ? <button type="button" onClick={voice.stop} className="rounded-lg border border-white/20 px-3 py-2 text-slate-200">Stop speech</button> : voice.canSpeak && <button type="button" onClick={() => void voice.speak()} className="rounded-lg border border-white/20 px-3 py-2 text-slate-200">Speak message</button>}
-      <span className="text-slate-400">Nova narration · Start voice input stays separate</span>
+      <button type="button" aria-pressed={voice.enabled} aria-label={`Nova voice ${voice.enabled ? "on" : "off"}`} onClick={voice.toggle}
+        className={`${pill} ${voice.enabled ? "border-[#F2C14E] bg-[#F2C14E] text-[#2A2410]" : "border-white/40 hover:bg-white/10"}`}>
+        Nova&apos;s voice {voice.enabled ? "on" : "off"}
+      </button>
+      {voice.busy ? <button type="button" onClick={voice.stop} className={`${pill} border-white/30 hover:bg-white/10`}>Stop</button>
+        : voice.canSpeak && <button type="button" onClick={() => void voice.speak()} className={`${pill} border-white/30 hover:bg-white/10`}>Say it again</button>}
+      {!compact && <span className="opacity-65">Saying &ldquo;Start&rdquo; works either way.</span>}
     </div>
-    {voice.enabled && !allowed && <p className="mt-2 text-slate-400">Nova stays quiet during setup and while waiting for Start.</p>}
-    {voice.error && <p role="status" className="mt-2 text-amber-100">{voice.error}</p>}
+    {!compact && voice.enabled && !allowed && <p className="mt-2 opacity-70">Nova stays quiet during setup and while waiting for Start.</p>}
+    {voice.error && <p role="status" className="mt-2 text-[#FFD89A]">{voice.error}</p>}
   </div>;
 }
