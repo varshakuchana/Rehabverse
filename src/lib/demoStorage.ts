@@ -12,6 +12,11 @@ export function writeStored(key: string, value: unknown): void {
   localStorage.setItem(key, JSON.stringify(value));
   window.dispatchEvent(new Event(DEMO_STORAGE_EVENT));
 }
+export function removeStored(key: string): void {
+  localStorage.removeItem(key);
+  try { sessionStorage.removeItem(key); } catch { /* Session storage may be unavailable. */ }
+  window.dispatchEvent(new Event(DEMO_STORAGE_EVENT));
+}
 export function subscribeStorage(listener: () => void) {
   window.addEventListener("storage", listener);
   window.addEventListener(DEMO_STORAGE_EVENT, listener);

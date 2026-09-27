@@ -1,3 +1,4 @@
+import { verifyNovaVoice } from "@/lib/novaVoiceToken";
 import { isSpeakableNovaText, MAX_NOVA_TEXT_LENGTH } from "@/lib/novaMessages";
 
 export const runtime = "nodejs";
@@ -33,14 +34,14 @@ export async function POST(request: Request) {
   } finally { reader.releaseLock(); }
 
   if (!input || typeof input !== "object" || Array.isArray(input) ||
-      Object.keys(input).some(key => key !== "text") || !("text" in input) || typeof input.text !== "string") {
+      Object.keys(input).some(key => key !== "text" && key !== "voiceToken") || !("text" in input) || typeof input.text !== "string") {
     return errorResponse("Provide only a text message.", 400);
   }
   const text = input.text.trim();
-  if (!text || text.length > MAX_NOVA_TEXT_LENGTH) {
+  if (!text || text.length > ("voiceToken" in input ? 1200 : MAX_NOVA_TEXT_LENGTH)) {
     return errorResponse(`Text must contain 1–${MAX_NOVA_TEXT_LENGTH} characters.`, 400);
   }
-  if (!isSpeakableNovaText(text)) return errorResponse("Only Nova's built-in session messages can be spoken.", 400);
+  if (!isSpeakableNovaText(text) && !verifyNovaVoice(text, "voiceToken" in input ? input.voiceToken : undefined)) return errorResponse("Only Nova's built-in session messages can be spoken.", 400);
 
   const apiKey = process.env.ELEVENLABS_API_KEY?.trim();
   const voiceId = process.env.ELEVENLABS_VOICE_ID?.trim();

@@ -30,6 +30,7 @@ export function StageTopBar({ backHref, backLabel, onBack, context }: { backHref
       <Link href={backHref} onClick={onBack} className="rounded-full bg-[rgba(24,28,54,.55)] px-4 py-2 backdrop-blur-md transition hover:bg-[rgba(24,28,54,.85)]">
         <span aria-hidden>←</span> {backLabel}
       </Link>
+      <Link href="/" className="rounded-full bg-[rgba(24,28,54,.55)] px-4 py-2">Home</Link>
       <p className="hidden rounded-full bg-[rgba(24,28,54,.55)] px-4 py-2 opacity-90 backdrop-blur-md sm:block">{context}</p>
     </div>
   );

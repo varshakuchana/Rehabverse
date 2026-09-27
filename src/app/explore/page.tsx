@@ -32,7 +32,7 @@ export default function ExplorePage() {
                   <Link href={exercise.sessionRoute!} className="group flex h-full flex-col overflow-hidden rounded-[24px] border-2 bg-[rgba(24,28,54,.8)] transition hover:-translate-y-0.5" style={{ borderColor: `${theme.accent}88` }}>
                     <div className="relative aspect-[16/9]">
                       <WorldPostcard world={world} />
-                      <span className="absolute left-3 top-3 rounded-full bg-[rgba(18,20,40,.75)] px-3 py-1 text-[13px] font-semibold backdrop-blur">{interactive ? "Camera counts" : "You mark each one"}</span>
+                      <span className="absolute left-3 top-3 rounded-full bg-[rgba(18,20,40,.75)] px-3 py-1 text-[13px] font-semibold backdrop-blur">{interactive ? "Camera tracked" : "Guided"}</span>
                     </div>
                     <div className="flex flex-1 flex-col p-5">
                       <p className="text-[15px] font-semibold" style={{ color: theme.accent }}>{exercise.name}</p>

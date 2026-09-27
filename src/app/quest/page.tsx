@@ -78,11 +78,14 @@ export default function QuestPage() {
                 : `${doneCount} of ${playable.length} done today. Each exercise opens its own world.`}
             </p>
           </div>
-          {next?.world && (
-            <Link href={sessionLink(next.index)} className="rv-btn rv-btn-big border-0" style={{ background: THEMES[next.world].accent, color: THEMES[next.world].ink }}>
-              {doneCount ? "Continue" : "Begin"}: {next.exercise.name} <span aria-hidden>→</span>
-            </Link>
-          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/hep?edit=1" className="rv-link text-[15px]">Edit exercises</Link>
+            {next?.world && (
+              <Link href={sessionLink(next.index)} className="rv-btn rv-btn-big border-0" style={{ background: THEMES[next.world].accent, color: THEMES[next.world].ink }}>
+                {doneCount ? "Continue" : "Begin"}: {next.exercise.name} <span aria-hidden>→</span>
+              </Link>
+            )}
+          </div>
         </header>
 
         <ol className="relative mt-10 grid gap-4" aria-label="Exercises in your plan">
@@ -104,7 +107,7 @@ export default function QuestPage() {
                       <h2 className="font-display text-2xl font-bold capitalize leading-tight">{exercise.name}</h2>
                       <p className="mt-1 text-[16px] opacity-85">{dose(exercise)}.</p>
                       {theme ? (
-                        <p className="mt-1 text-[15px]"><span style={{ color: theme.accent }}>{theme.quest}.</span> <span className="opacity-75">{capability === "interactive" ? "The camera counts." : "You mark each rep; nothing is measured."}</span></p>
+                        <p className="mt-1 text-[15px]"><span style={{ color: theme.accent }}>{theme.quest}.</span> <span className="opacity-75">{capability === "interactive" ? "Camera tracked." : "Guided · self-reported."}</span></p>
                       ) : (
                         <p className="mt-1 text-[15px] opacity-70">This needs a rep count (and, for follow-along, instructions) from your plan before it can be played.</p>
                       )}
@@ -125,10 +128,11 @@ export default function QuestPage() {
         <div className="rv-quest-schedule mt-10"><HEPSchedule plan={plan} /></div>
 
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link href="/hep" className="rv-btn rv-btn-ghost">Upload an updated plan</Link>
+          <Link href="/hep?edit=1" className="rv-btn rv-btn-ghost">Edit exercises</Link>
+          <Link href="/hep?replace=1" className="rv-btn rv-btn-ghost">Upload Updated HEP</Link>
           <Link href="/progress" className="rv-btn rv-btn-ghost">Progress</Link>
         </div>
-        {plan.frequency?.rawText && <p className="mt-6 text-[15px] opacity-75">Your plan says: {plan.frequency.rawText}</p>}
+        {plan.frequency?.rawText && !/_{2,}|…|\.{3,}/.test(plan.frequency.rawText) && <p className="mt-6 text-[15px] opacity-75">Your plan says: {plan.frequency.rawText}</p>}
         <p className="mt-2 pb-8 text-[15px] opacity-75">From {plan.sourceFileName}, reviewed by you. Follow the instructions and limits in your care plan, and stop if anything hurts.</p>
       </div>
     </main>

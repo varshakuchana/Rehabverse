@@ -1,21 +1,19 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { useProgress, useSchedules } from "@/hooks/useProgress";
-import { DAY_NAMES, exerciseKey, frequencyInfo, saveSchedule } from "@/lib/scheduleStorage";
-import { thisWeek } from "@/lib/progressStorage";
+import { useSchedules } from "@/hooks/useProgress";
+import { DAY_NAMES, frequencyInfo, saveSchedule } from "@/lib/scheduleStorage";
 import type { ConfirmedPlan } from "@/types/schedule";
 
 export default function HEPSchedule({ plan }: { plan: ConfirmedPlan }) {
-  const sessions = useProgress();
   const schedules = useSchedules();
   const info = frequencyInfo(plan.frequency);
   const saved = schedules.find(item => item.planId === plan.id && item.frequencyKey === info.key);
-  const week = thisWeek(sessions.filter(item => item.source === "hep" && item.planId === plan.id));
+  if (!plan.frequency?.rawText && !info.weekly && !info.specified.length) return null;
   return (
     <section className="rv-glass my-8 rounded-[28px] p-6 sm:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div><p className="rv-eyebrow">This week</p><h2 className="mt-1 font-display text-3xl font-extrabold tracking-tight">Make room for your quest</h2></div>
+        <h2 className="font-display text-3xl font-extrabold tracking-tight">Your schedule</h2>
         <div className="flex gap-4 text-[15px] text-[#F2C14E]"><Link href="/quest">My Quest →</Link><Link href="/progress">View Progress →</Link></div>
       </div>
       <p className="mt-5 text-sm opacity-70">Confirmed HEP frequency</p>
@@ -25,16 +23,6 @@ export default function HEPSchedule({ plan }: { plan: ConfirmedPlan }) {
       {info.canChoose && <DayPicker key={`${plan.id}:${info.key}:${saved?.days.join(",") ?? "new"}`} planId={plan.id} frequencyKey={info.key} count={info.weekly!} initialDays={saved?.days ?? []} />}
       {saved && info.canChoose && <p role="status" className="mt-4 text-sm text-[#F2C14E]">Saved on this device. Your preferred days: {saved.days.map(day => DAY_NAMES[day]).join(", ")}. {saved.days.includes(new Date().getDay()) ? "Today is one of your chosen days." : "Today is not one of your chosen days."}</p>}
       {info.weekly === undefined && <p className="mt-3 text-sm opacity-70">Kept as the original instruction. No exact weekly target or schedule has been inferred.</p>}
-      <div className="mt-6 border-t border-white/10 pt-5">
-        <p className="text-lg font-semibold">{week.length} exercise sessions completed this week</p>
-        <p className="mt-2 text-xs leading-5 opacity-70">Monday–Sunday. Counts below are per exercise, not whole-plan visits. Explore sessions do not count toward your HEP.</p>
-        <ul className="mt-4 space-y-3">
-          {plan.exercises.map((exercise, index) => {
-            const count = week.filter(item => item.exerciseId === exerciseKey(plan, index)).length;
-            return <li key={index} className="flex flex-wrap justify-between gap-2 rounded-2xl bg-white/[.06] px-4 py-3 text-[15px]"><span>{exercise.name}</span><span className="text-[#F2C14E]">{count} completed{info.weekly !== undefined ? ` · ${Math.max(0, info.weekly - count)} remaining of ${info.weekly} planned this week` : ""}</span></li>;
-          })}
-        </ul>
-      </div>
     </section>
   );
 }

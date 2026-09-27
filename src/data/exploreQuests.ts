@@ -52,3 +52,13 @@ export const shoulderQuests: QuestDefinition[] = (["shoulder_flexion", "shoulder
     instructions: [detectorId === "shoulder_flexion" ? "With your side toward the camera, move your visible arm forward comfortably, then return it to your starting position." : "Facing the camera, move one arm out to the side comfortably, then return it to your starting position.", "Use the same arm throughout. Choose Left or Right before enabling the camera. There is no height or speed goal. Pause whenever you like.", "The tracker reads movement in the camera view. It does not evaluate form or determine medical correctness."],
   },
 }));
+
+export const additionalPoseQuests: QuestDefinition[] = (["hip_flexion", "hip_abduction", "knee_curl", "elbow_flexion"] as const).map(detectorId => ({
+  ...exploreMovementQuest, exerciseId: detectorId.replaceAll("_", "-"), detectorId, target: 6,
+  instructor: { ...exploreMovementQuest.instructor,
+    name: ({ hip_flexion: "Standing knee raise", hip_abduction: "Standing hip abduction", knee_curl: "Standing knee curl", elbow_flexion: "Elbow flexion" })[detectorId],
+    prescription: { reps: 6, repLabel: "movements" }, positioning: detectors[detectorId].positioning,
+    cameraRequirements: detectors[detectorId].cameraRequirements,
+    instructions: [detectors[detectorId].positioning, "Move comfortably. Use the same side throughout. One recognized movement = one spark."],
+  },
+}));

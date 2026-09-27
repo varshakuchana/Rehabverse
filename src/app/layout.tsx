@@ -1,3 +1,4 @@
+import GlobalNova from "@/components/GlobalNova";
 import type { Metadata } from "next";
 import { Atkinson_Hyperlegible, Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <a href="#main-content" className="sr-only z-50 rounded-xl bg-[#F2C14E] p-3 text-[#2A2410] focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Skip to main content</a>
         {children}
+        <GlobalNova />
       </body>
     </html>
   );

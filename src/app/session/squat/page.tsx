@@ -18,6 +18,6 @@ function QuestEntry() {
   const index = Number(params.get("exercise"));
   const definition = hep ? (plan && plan.id === params.get("plan") && params.has("exercise") && Number.isInteger(index) ? hepQuest(plan, index) : null)
     : exercises.find(item => item.id === (params.get("exercise") ?? "squat"))?.quest;
-  if (!definition) return <main id="main-content" className="min-h-screen bg-slate-950 p-8 text-white"><h1 className="text-2xl">This quest is unavailable.</h1><p className="my-4">Open a supported quest from your current plan or Explore.</p><Link href={hep ? "/quest" : "/explore"} className="text-cyan-200">← Back to {hep ? "My HEP" : "Explore"}</Link></main>;
+  if (!definition) return <main id="main-content" className="min-h-screen bg-slate-950 p-8 text-white"><h1 className="text-2xl">This quest is unavailable.</h1><p className="my-4">Open a supported quest from your current plan or Explore.</p><Link href={hep ? "/quest" : "/explore"} className="text-cyan-200">← Back to {hep ? "My HEP" : "Explore"}</Link><Link href="/" className="ml-4 text-cyan-200">Home</Link></main>;
   return <QuestExperience key={JSON.stringify(definition)} definition={definition} />;
 }

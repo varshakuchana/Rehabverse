@@ -3,6 +3,7 @@ import type { QuestDefinition } from "@/types/quest";
 // One query boundary for the local approved catalog. A future adapter can replace it.
 // These are game targets, not clinical recommendations or personalized dosage.
 const targets: Record<string, readonly number[]> = {
+  "hip-flexion": [4, 6, 8], "hip-abduction": [4, 6, 8], "knee-curl": [4, 6, 8], "elbow-flexion": [4, 6, 8],
   squat: [4, 6, 8, 10], "shoulder-flexion": [4, 6, 8], "shoulder-abduction": [4, 6, 8], "ankle-mobility": [4, 6, 8],
 };
 export function queryExploreCatalog() {

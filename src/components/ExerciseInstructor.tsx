@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { NovaMark } from "./NovaMark";
 import NovaVoiceControl from "./NovaVoiceControl";
@@ -57,6 +58,7 @@ export default function ExerciseInstructor(props: ExerciseInstructorProps) {
       <div className="mx-auto grid min-h-screen max-w-6xl content-center gap-6 px-5 py-10 lg:grid-cols-[1.1fr_.9fr]">
         <div>
           {props.backLink}
+          <Link href="/" className="rounded-full bg-[rgba(24,28,54,.55)] px-4 py-2 text-[15px]">Home</Link>
           <p className="mt-6 flex items-center gap-3 text-[16px]"><NovaMark size={34} /><span>Nova, your quest companion</span></p>
           <h1 id="tutorial-title" className="mt-4 font-display text-[clamp(42px,6vw,78px)] font-extrabold leading-[.95] tracking-tight">{theme?.quest ?? "A little movement, a little magic"}</h1>
           <p className="mt-4 max-w-[46ch] text-[19px] leading-snug opacity-90">{theme?.goal ?? exercise.gameDescription}</p>

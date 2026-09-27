@@ -1,4 +1,4 @@
-export const MEDICAL_REDIRECT = "For an injury or rehabilitation plan, use exercises provided by your healthcare professional. If you have a Home Exercise Program, upload it in My HEP and RehabVerse can turn that plan into an interactive quest.";
+export const MEDICAL_REDIRECT = "I can help you understand an existing care plan, but I can’t choose treatment exercises for pain. If you have a Home Exercise Program, we can turn it into a quest. You can also ask for a general movement break.";
 export const WELLNESS_LABEL = "General wellness movement experience — not personalized medical treatment.";
 export function isMedicalRequest(input: string): boolean {
   const text = input.normalize("NFKC").toLowerCase().replace(/[\u200B-\u200D\uFEFF]/g, "");

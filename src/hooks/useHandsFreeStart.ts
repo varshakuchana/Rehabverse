@@ -1,6 +1,6 @@
 "use client";
 
-import { novaAudioBlocksVoiceStart } from "@/lib/novaAudioGate";
+import { isNovaPanelOpen, novaAudioBlocksVoiceStart } from "@/lib/novaAudioGate";
 
 import {
   useCallback,
@@ -13,6 +13,7 @@ type SpeechRecognitionEventLike = {
   results: {
     length: number;
     [index: number]: {
+      isFinal?: boolean;
       0: {
         transcript: string;
       };
@@ -158,6 +159,8 @@ export function useHandsFreeStart({
     );
 
   const recognitionRunningRef = useRef(false);
+  const novaPanelOpenRef = useRef(isNovaPanelOpen());
+  const resumeAfterNovaRef = useRef(false);
 
   const countdownTimerRef =
     useRef<ReturnType<
@@ -383,6 +386,7 @@ export function useHandsFreeStart({
       if (
         isStartCommand &&
         !novaAudioBlocksVoiceStart() &&
+        !novaPanelOpenRef.current &&
         trackingReadyRef.current &&
         internalStateRef.current ===
           "idle"
@@ -405,6 +409,7 @@ export function useHandsFreeStart({
     recognition.onend = () => {
       recognitionRunningRef.current = false;
       setVoiceListening(false);
+      if (resumeAfterNovaRef.current && !novaPanelOpenRef.current) window.dispatchEvent(new CustomEvent("nova-panel", { detail: false }));
     };
 
     recognitionRef.current =
@@ -451,7 +456,7 @@ export function useHandsFreeStart({
 
       // Cover both starting and listening: repeated clicks must not start
       // the same recognition instance twice before Chrome fires onstart.
-      if (recognitionRunningRef.current) return;
+      if (recognitionRunningRef.current || novaPanelOpenRef.current) return;
 
       setMicrophoneError("");
       recognitionRunningRef.current = true;
@@ -465,6 +470,24 @@ export function useHandsFreeStart({
         );
       }
     }, []);
+
+  // Nova's question microphone owns speech input only while its panel is open.
+  // The session Start/Begin recognizer resumes only if it was already enabled.
+  useEffect(() => {
+    const panel = (event: Event) => {
+      const open = (event as CustomEvent<boolean>).detail;
+      novaPanelOpenRef.current = open;
+      if (open) {
+        resumeAfterNovaRef.current = recognitionRunningRef.current;
+        try { recognitionRef.current?.stop(); } catch { /* Already stopped. */ }
+      } else if (resumeAfterNovaRef.current && !recognitionRunningRef.current) {
+        resumeAfterNovaRef.current = false;
+        restartVoiceListening();
+      }
+    };
+    window.addEventListener("nova-panel", panel);
+    return () => window.removeEventListener("nova-panel", panel);
+  }, [restartVoiceListening]);
 
   /*
     Call this when the prescribed exercise/set

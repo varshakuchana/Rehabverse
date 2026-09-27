@@ -1,4 +1,5 @@
 "use client";
+import { useNovaContext } from "@/hooks/useNovaContext";
 
 import type { SessionPresentation, SessionVisualState } from "@/types/sessionPresentation";
 import Link from "next/link";
@@ -45,16 +46,16 @@ export default function TrackedQuest({ definition, onContinue, presentation }: {
   const backLabel = presentation ? "Pause" : definition.source === "hep" ? "My quest" : "Explore";
   const world = presentation ? undefined : worldFor(definition);
   const accent = world ? THEMES[world].accent : "#F2C14E";
-  const armPicker = definition.detectorId?.startsWith("shoulder") ? (
+  const armPicker = definition.detectorId && definition.detectorId !== "knee_flexion" ? (
           <fieldset className="mt-5 rounded-2xl border border-white/20 p-4">
-            <legend className="px-2 font-display font-semibold">Which arm will you move?</legend>
-            <p className="mb-3 text-[15px] opacity-80">Use this arm the whole time. Follow any side your plan specifies.</p>
+            <legend className="px-2 font-display font-semibold">Which side will you move?</legend>
+            <p className="mb-3 text-[15px] opacity-80">Use this side the whole time. Follow any side your plan specifies.</p>
             <div className="flex gap-2">
               {(["left", "right"] as const).map(side => (
                 <label key={side} className="relative cursor-pointer">
                   <input type="radio" name="tracked-side" className="peer sr-only" checked={trackedSide === side} onChange={() => setTrackedSide(side)} />
                   <span className="grid min-h-12 min-w-28 place-items-center rounded-full border-2 border-white/40 px-5 font-display font-semibold capitalize transition peer-checked:text-[#1b1535] peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-[#F2C14E]"
-                    style={trackedSide === side ? { background: accent, borderColor: accent } : undefined}>{side} arm</span>
+                    style={trackedSide === side ? { background: accent, borderColor: accent } : undefined}>{side} side</span>
                 </label>
               ))}
             </div>
@@ -173,6 +174,8 @@ function MovementQuestSession({ definition, onContinue, presentation }: { defini
       setFeedback("GO! Hold your starting position for a moment.");
     },
   });
+
+  useNovaContext({ mode: definition.source === "hep" ? "HEP" : "Explore", exercise: instructor.name, instructions: instructor.instructions.join("\n"), target, sessionState, completed: reps, cameraEnabled: cameraActive, trackingReady: cameraActive && bodyDetected && movementAngle !== null, missingLandmarks: detector.cameraRequirements }, playAgain);
 
   function playAgain() {
     sessionIdRef.current = null;
@@ -736,7 +739,7 @@ function MovementQuestSession({ definition, onContinue, presentation }: { defini
   const backHref = presentation ? "/story" : definition.source === "hep" ? "/quest" : "/explore";
   const backLabel = presentation ? "Pause" : definition.source === "hep" ? "My quest" : "Explore";
   const onBack = (event: React.MouseEvent<HTMLAnchorElement>) => { if (presentation) { event.preventDefault(); presentation.onExit(); } };
-  const armNote = detectorId !== "knee_flexion" ? `Tracking your ${definition.trackedSide} arm, ${detectorId === "shoulder_flexion" ? "side-on to the camera" : "facing the camera"}.` : undefined;
+  const armNote = detectorId !== "knee_flexion" ? `Tracking your ${definition.trackedSide ?? "selected"} side. ${detector.cameraRequirements}` : undefined;
   const verbs = world === "well"
     ? { moving: "Down into the well", returning: "Haul it up" }
     : { moving: "Wings up", returning: "Now let it fly" };

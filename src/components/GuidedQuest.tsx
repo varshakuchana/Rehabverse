@@ -1,4 +1,5 @@
 "use client";
+import { useNovaContext } from "@/hooks/useNovaContext";
 import Link from "next/link";
 import { useEffect, useReducer, useRef, useState } from "react";
 import type { QuestDefinition } from "@/types/quest";
@@ -51,6 +52,8 @@ export default function GuidedQuest({ definition, onContinue }: { definition: Qu
     dispatch({ type: "complete", target });
     saveRecord();
   }
+  useNovaContext({ mode: definition.source === "hep" ? "HEP" : "Explore", exercise: instructor.name, instructions: instructor.instructions.join("\n"), target, sessionState: session.phase, completed: session.reps, cameraEnabled: false, trackingReady: false }, playAgain);
+
   function playAgain() {
     recordRef.current = null;
     setSaveMessage(""); setSaveFailed(false);
@@ -103,7 +106,7 @@ export default function GuidedQuest({ definition, onContinue }: { definition: Qu
       world={<ExerciseWorld key={`${world}:${target}`} world={world} completed={session.reps} target={target} active={active} pulseKey={pulse}
         fallback={<RehabWorldGame sessionState={complete ? "complete" : active ? "active" : "ready"} completedReps={session.reps} targetReps={target} movementProgress="ready" completionMode="manual" />} />}>
       <StageTopBar backHref={backHref} backLabel={backLabel}
-        context={`Guided mode: you mark each movement, nothing is measured. ${score} points.`} />
+        context="Guided · self-reported" />
 
       <StageCoach eyebrow={instructor.name} quest={theme.quest} title={coach.title} hint={coach.hint} accent={theme.accent}
         demo={complete ? null : demoFor(definition)}

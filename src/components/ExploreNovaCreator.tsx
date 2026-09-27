@@ -47,7 +47,7 @@ export default function ExploreNovaCreator() {
   return <section aria-labelledby="nova-create-title" className="rv-glass relative overflow-hidden rounded-[28px] p-7 sm:p-9">
     <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-[#B69CFF]/25 blur-3xl" />
     <div className="relative flex items-center gap-3"><NovaMark size={44} /><div><p className="rv-eyebrow">Ask Nova</p><h2 id="nova-create-title" className="font-display text-[clamp(28px,3vw,40px)] font-extrabold leading-none tracking-tight">Build me a quest</h2></div></div>
-    <p className="relative mt-4 max-w-[58ch] text-[17px] leading-snug opacity-90">Tell Nova what kind of movement break you want. Nova only picks from our supported movements, never new exercises or treatment routines.</p>
+    <p className="relative mt-4 max-w-[58ch] text-[17px] leading-snug opacity-90">Nova builds general wellness quests from supported RehabVerse movements.</p>
     <form onSubmit={e => { e.preventDefault(); void create(); }} className="relative mt-5">
       <label htmlFor="nova-request" className="block font-display text-lg font-semibold">What would you like?</label>
       <textarea id="nova-request" maxLength={600} rows={2} required disabled={loading || launching} value={prompt} onChange={e => { setPrompt(e.target.value); setQuest(null); setMedical(false); setError(""); }} placeholder="A light upper-body movement break"
@@ -63,7 +63,7 @@ export default function ExploreNovaCreator() {
     </form>
     {loading && <p role="status" className="rv-busy relative mt-4 text-[16px]">Checking your request against the supported movements…</p>}
     {error && <p role="alert" className="relative mt-4 text-[16px] text-[#FFD89A]">{error}</p>}
-    {medical && <div role="status" className="relative mt-5 rounded-2xl border border-white/25 bg-white/5 p-5"><p className="text-[16px] leading-snug">{MEDICAL_REDIRECT}</p><Link href="/hep" className="rv-link mt-3 inline-block font-semibold text-[#F2C14E]">Upload your plan instead</Link></div>}
+    {medical && <div role="status" className="relative mt-5 rounded-2xl border border-white/25 bg-white/5 p-5"><div className="flex gap-3"><NovaMark /><p className="text-[16px] leading-snug">{MEDICAL_REDIRECT}</p></div><Link href="/hep" className="rv-link mt-3 inline-block font-semibold text-[#F2C14E]">Upload your plan instead</Link></div>}
     {quest && <div className="relative mt-6 rounded-[24px] border border-white/20 bg-[rgba(12,14,30,.5)] p-6">
       <h3 className="font-display text-2xl font-bold">{quest.title}</h3>
       <p className="mt-1 text-[16px] opacity-85">{quest.description} Take as long as you like.</p>
@@ -75,7 +75,7 @@ export default function ExploreNovaCreator() {
           <div className="h-full min-h-20"><WorldPostcard world={world} /></div>
           <div className="py-3">
             <p className="font-display text-lg font-bold">{index + 1}. {entry.name}, {step.targetReps} movements</p>
-            <p className="text-[15px]" style={{ color: THEMES[world].accent }}>{THEMES[world].quest}. {entry.capability === "interactive" ? "Camera counts them." : "You mark each one."}</p>
+            <p className="text-[15px]" style={{ color: THEMES[world].accent }}>{THEMES[world].quest}. {entry.capability === "interactive" ? "Camera tracked." : "Guided · self-reported."}</p>
           </div>
         </li>;
       })}</ol>

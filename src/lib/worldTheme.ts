@@ -57,7 +57,7 @@ export const THEMES: Record<WorldKind, WorldTheme> = {
 
 export function worldFor(definition: Pick<QuestDefinition, "detectorId" | "instructor" | "trackingCapability" | "holdSeconds">): WorldKind {
   if (definition.trackingCapability === "interactive") {
-    return definition.detectorId === "knee_flexion" ? "well" : "flock";
+    return definition.detectorId?.startsWith("shoulder") ? "flock" : "well";
   }
   if (definition.holdSeconds || /balance|single[ -]leg|one[ -]leg|stance/i.test(definition.instructor.name)) return "cairn";
   return "orbit";

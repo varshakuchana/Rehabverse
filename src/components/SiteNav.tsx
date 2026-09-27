@@ -15,6 +15,7 @@ export default function SiteNav({ current }: { current?: "home" | "quest" | "hep
     <nav aria-label="Main" className="relative z-20 flex flex-wrap items-center justify-between gap-3 mb-8">
       <Link href="/" className="font-display text-xl font-extrabold tracking-tight">RehabVerse</Link>
       <div className="rv-glass flex flex-wrap gap-1 rounded-full p-1">
+        {link("/", "Home", "home")}
         {link("/quest", "My Quest", "quest")}
         {link("/hep", "My HEP", "hep")}
         {link("/explore", "Explore", "explore")}

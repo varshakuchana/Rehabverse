@@ -7,7 +7,7 @@ export function hepCapability(exercise: ConfirmedExercise): "interactive" | "gui
   const reps = exercise.repetitions;
   if (!Number.isSafeInteger(reps) || reps! <= 0 || (exercise.sets != null && (!Number.isSafeInteger(exercise.sets) || exercise.sets <= 0)) || !Number.isSafeInteger(reps! * (exercise.sets ?? 1)) || (exercise.holdSeconds != null && (!Number.isFinite(exercise.holdSeconds) || exercise.holdSeconds <= 0))) return "reference";
   // Holds remain self-reported; the camera does not verify hold duration.
-  if (detectorForExercise(exercise.name) && !exercise.holdSeconds) return "interactive";
+  if (detectorForExercise(exercise.name, [exercise.instructions, exercise.notes].filter(Boolean).join(" ")) && !exercise.holdSeconds) return "interactive";
   return exercise.instructions?.trim() ? "guided" : "reference";
 }
 export function hepQuest(plan: ConfirmedPlan, index: number): QuestDefinition | null {
@@ -15,7 +15,7 @@ export function hepQuest(plan: ConfirmedPlan, index: number): QuestDefinition | 
   if (!exercise) return null;
   const capability = hepCapability(exercise);
   if (capability === "reference") return null;
-  const detectorId = capability === "interactive" ? detectorForExercise(exercise.name) : undefined;
+  const detectorId = capability === "interactive" ? detectorForExercise(exercise.name, [exercise.instructions, exercise.notes].filter(Boolean).join(" ")) : undefined;
   const camera = detectorId ? detectors[detectorId] : null;
   const target = exercise.repetitions! * (exercise.sets ?? 1);
   return {
@@ -27,7 +27,9 @@ export function hepQuest(plan: ConfirmedPlan, index: number): QuestDefinition | 
       prescription: { reps: exercise.repetitions!, sets: exercise.sets ?? undefined, holdSeconds: exercise.holdSeconds ?? undefined, repLabel: exercise.sets ? "reps per set" : "reps" },
       positioning: camera?.positioning ?? "Follow the positioning instructions in your confirmed HEP.",
       cameraRequirements: camera?.cameraRequirements ?? "No camera is used. Completion is self-reported, not automatically verified.",
-      instructions: [exercise.instructions, exercise.notes, ...(plan.generalInstructions ?? []), `${target} total movements. Follow your plan's set breaks and hold instructions.`].filter((text): text is string => Boolean(text)),
+      // Exercise cards contain only exercise-specific source text. Plan-wide
+      // guidance remains available with the plan instead of repeating here.
+      instructions: [exercise.instructions, exercise.notes].filter((text): text is string => Boolean(text)),
       ...(capability === "guided" ? {
         nextStepMessage: "Next: press Start. No camera or microphone needed.",
         startInstruction: 'Press Start, follow your confirmed instructions, and mark each repetition yourself. Select Complete Quest to save.',

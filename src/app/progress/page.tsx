@@ -120,7 +120,7 @@ export default function ProgressPage() {
                   </div>
                   <div className="text-right text-[15px]">
                     <p className="font-semibold">{session.completedReps}/{session.targetReps} movements</p>
-                    <p className="text-[13px] opacity-70">{session.score} points{session.prescribedSets ? `, ${session.prescribedSets} prescribed sets` : ""}</p>
+                    <p className="text-[13px] opacity-70">{session.completionMethod === "self-reported" ? "Self-reported completion" : `${session.score} points`}{session.prescribedSets ? `, ${session.prescribedSets} prescribed sets` : ""}</p>
                   </div>
                 </li>
               ))}

@@ -12,3 +12,10 @@ export function beginNovaAudio() {
 export function novaAudioBlocksVoiceStart() {
   return playing.size > 0 || Date.now() < ignoreUntil;
 }
+
+let assistantPanelOpen = false;
+export function isNovaPanelOpen() { return assistantPanelOpen; }
+export function setNovaPanelOpen(open: boolean) {
+  assistantPanelOpen = open;
+  window.dispatchEvent(new CustomEvent("nova-panel", { detail: open }));
+}

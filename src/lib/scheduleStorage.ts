@@ -1,18 +1,31 @@
+import { isExtractedHEP } from "./validateHEP";
+import { normalizeConfirmedHEP, normalizeTemplateFields, templateText } from "./hepReview";
 import { hepCapability } from "./hepQuests";
 import type { ConfirmedPlan, Frequency, SchedulePreference } from "@/types/schedule";
-import { parseStored, readStored, subscribeStorage, writeStored } from "./demoStorage";
+import { parseStored, readStored, removeStored, subscribeStorage, writeStored } from "./demoStorage";
 export const PLAN_KEY = "rehabverse-confirmed-hep";
 export const SCHEDULE_KEY = "rehabverse-schedule-v1";
 export const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 export function decodePlan(raw: string | null): ConfirmedPlan | null {
   const value = parseStored(raw) as ConfirmedPlan | null;
-  if (!value || value.confirmed !== true || typeof value.id !== "string" || !Array.isArray(value.exercises) ||
+  if (!value || value.persistenceVersion !== 2 || value.selectionConfirmed !== true || value.confirmed !== true || typeof value.id !== "string" || !Array.isArray(value.exercises) ||
     !value.exercises.every(item => item && typeof item.name === "string")) return null;
-  return value;
+  if (!value.exercises.length) return null;
+  const extracted = normalizeTemplateFields({ exercises: value.exercises, frequency: value.frequency ?? {}, generalInstructions: value.generalInstructions ?? [], extractionNotes: value.extractionNotes ?? [] });
+  if (!isExtractedHEP(extracted)) return null;
+  return { ...value, ...normalizeConfirmedHEP(extracted) };
 }
 export function subscribePlan(listener: () => void) {
   const unsubscribe = subscribeStorage(listener);
-  // Upgrade a previously confirmed session-only plan without requiring re-upload.
+  const current = readStored(PLAN_KEY, true);
+  if (requiresPlanReview(current)) {
+    // Development-era plans did not record explicit exercise selection. Drop
+    // only that plan key; Progress, Story, schedules, and other data remain.
+    try { removeStored(PLAN_KEY); } catch { /* Invalid data remains inactive. */ }
+    return unsubscribe;
+  }
+  // Only versioned explicit selections may move from session to local storage.
+  // Legacy data stays intact, but is not returned as an active plan.
   if (!readStored(PLAN_KEY)) {
     const legacy = decodePlan(readStored(PLAN_KEY, true));
     if (legacy) {
@@ -22,12 +35,21 @@ export function subscribePlan(listener: () => void) {
   return unsubscribe;
 }
 export function saveConfirmedPlan(plan: ConfirmedPlan) { writeStored(PLAN_KEY, plan); }
-export function getConfirmedPlan() { return decodePlan(readStored(PLAN_KEY, true)); }
+export function getConfirmedPlan() {
+  const raw = readStored(PLAN_KEY, true);
+  if (requiresPlanReview(raw)) {
+    try { removeStored(PLAN_KEY); } catch { /* Invalid data remains inactive. */ }
+    return null;
+  }
+  return decodePlan(raw);
+}
 export function exerciseKey(plan: ConfirmedPlan, index: number) { return `${plan.id}:${index}`; }
 export function isPlayableExercise(exercise: ConfirmedPlan["exercises"][number]) {
   return hepCapability(exercise) === "interactive";
 }
 export function frequencyInfo(frequency?: Frequency) {
+  const template = templateText(frequency?.rawText);
+  if (template) frequency = undefined;
   const raw = typeof frequency?.rawText === "string" ? frequency.rawText.trim() : "";
   const specified = Array.isArray(frequency?.specifiedDays) ? frequency.specifiedDays.filter(day => typeof day === "string" && day.trim()) : [];
   // A deliberately narrow parser. Free-form, ranges, timing and templates stay text.
@@ -73,7 +95,7 @@ export function confirmPlanReplacement(plan: ConfirmedPlan, expectedCurrentId: s
   if ((current?.id ?? null) !== expectedCurrentId) {
     throw new Error("The current HEP changed in another tab. Review the comparison again before confirming.");
   }
-  if (!plan.confirmed || !plan.exercises.length || plan.id === current?.id) {
+  if (plan.persistenceVersion !== 2 || plan.selectionConfirmed !== true || !plan.confirmed || !plan.exercises.length || plan.id === current?.id) {
     throw new Error("Review a new plan with at least one extracted exercise before confirming.");
   }
   const schedules = decodeSchedules(readStored(SCHEDULE_KEY));
@@ -84,4 +106,9 @@ export function confirmPlanReplacement(plan: ConfirmedPlan, expectedCurrentId: s
   if (compatible) saveSchedule(compatible);
   saveConfirmedPlan(plan);
   // Progress records are deliberately never touched by a plan update.
+}
+
+export function requiresPlanReview(raw: string | null): boolean {
+  const value = parseStored(raw) as Partial<ConfirmedPlan> | null;
+  return !!value && value.confirmed === true && (value.persistenceVersion !== 2 || value.selectionConfirmed !== true);
 }

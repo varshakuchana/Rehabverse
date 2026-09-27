@@ -17,6 +17,8 @@ export type ConfirmedExercise = {
   notes?: string | null;
 };
 export type ConfirmedPlan = {
+  persistenceVersion?: 2;
+  selectionConfirmed?: true;
   id: string;
   sourceFileName: string;
   uploadedAt: string;
@@ -26,6 +28,7 @@ export type ConfirmedPlan = {
   extractionNotes?: string[];
   confirmed: boolean;
   originalExtraction?: ExtractedHEP;
+  selectedExerciseIndexes?: number[];
 };
 
 export type ExtractedHEP = {

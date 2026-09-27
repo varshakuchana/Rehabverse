@@ -6,12 +6,12 @@ import { useConfirmedPlan, useLocalDataStatus } from "@/hooks/useProgress";
 import HEPSchedule from "@/components/HEPSchedule";
 import HEPExerciseEditor from "@/components/HEPExerciseEditor";
 import IslandPresentation from "@/components/IslandPresentation";
-import { createHEPReview, selectedHEP, reviewValid, type ReviewExercise } from "@/lib/hepReview";
+import { canCompareUpdatedHEP, createConfirmedHEPReview, createHEPReview, reviewedExtraction, selectedHEP, selectedReviewIndexes, reviewValid, type ReviewExercise } from "@/lib/hepReview";
 import PlanUpdateReview from "@/components/PlanUpdateReview";
 import { isExtractedHEP } from "@/lib/validateHEP";
 import type { ExtractedHEP } from "@/types/schedule";
 import { useRouter } from "next/navigation";
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 
 type AnalyzeResponse = {
   success?: boolean;
@@ -25,6 +25,7 @@ export default function HEPPage() {
   const savedPlan = useConfirmedPlan();
   const dataStatus = useLocalDataStatus();
   const analysisRef = useRef<AbortController | null>(null);
+  const editQueryHandled = useRef(false);
   useEffect(() => () => { analysisRef.current?.abort(); analysisRef.current = null; }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -34,6 +35,9 @@ export default function HEPPage() {
   const savingRef = useRef(false);
   const [fileError, setFileError] = useState("");
   const [analysisError, setAnalysisError] = useState("");
+  const [stage, setStage] = useState("Reading your plan");
+  const [replacing, setReplacing] = useState(false);
+  const [editingExisting, setEditingExisting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [extractedHEP, setExtractedHEP] = useState<ExtractedHEP | null>(
     null
@@ -43,19 +47,44 @@ export default function HEPPage() {
   const reviewedHEP = extractedHEP ? selectedHEP(extractedHEP, review) : null;
   const canConfirm = reviewValid(review);
 
+  const editExistingPlan = useCallback(() => {
+    if (!savedPlan || savingRef.current) return;
+    analysisRef.current?.abort(); analysisRef.current = null;
+    const editable = createConfirmedHEPReview(savedPlan);
+    setSelectedFile(null); setReplacing(false); setEditingExisting(true);
+    setFileError(""); setAnalysisError(""); setConfirmationError("");
+    setExtractedHEP(editable.original); setReview(editable.review);
+    window.setTimeout(() => document.getElementById("hep-review")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }, [savedPlan]);
+  const showReplacementUpload = useCallback(() => setReplacing(true), []);
+
+  useEffect(() => {
+    if (!savedPlan || editQueryHandled.current) return;
+    editQueryHandled.current = true;
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("edit") === "1") editExistingPlan();
+    else if (query.get("replace") === "1") {
+      const timeout = window.setTimeout(showReplacementUpload, 0);
+      return () => window.clearTimeout(timeout);
+    }
+  }, [editExistingPlan, savedPlan, showReplacementUpload]);
+
   function confirmHEP() {
-    if (!extractedHEP || !reviewedHEP || !canConfirm || !selectedFile || savingRef.current || dataStatus !== "ready") return;
+    const sourceFileName = editingExisting ? savedPlan?.sourceFileName : selectedFile?.name;
+    if (!extractedHEP || !reviewedHEP || !canConfirm || !sourceFileName || savingRef.current || dataStatus !== "ready") return;
     savingRef.current = true;
     setIsSaving(true);
     setConfirmationError("");
     try {
       confirmPlanReplacement({
         ...reviewedHEP,
-        originalExtraction: extractedHEP,
+        originalExtraction: reviewedExtraction(extractedHEP, review),
+        selectedExerciseIndexes: selectedReviewIndexes(review),
         id: crypto.randomUUID(),
-        sourceFileName: selectedFile.name,
-        uploadedAt: new Date().toISOString(),
+        sourceFileName,
+        uploadedAt: editingExisting && savedPlan ? savedPlan.uploadedAt : new Date().toISOString(),
         confirmed: true,
+        persistenceVersion: 2, selectionConfirmed: true,
       }, savedPlan?.id ?? null);
       router.push("/quest");
     } catch (error) {
@@ -76,6 +105,7 @@ export default function HEPPage() {
     setFileError("");
     setAnalysisError("");
     setExtractedHEP(null);
+    setEditingExisting(false);
     setConfirmationError("");
 
     const allowedTypes = [
@@ -114,15 +144,25 @@ export default function HEPPage() {
   }
 
   function chooseFile() {
-    if (!analysisRef.current && !savingRef.current) fileInputRef.current?.click();
+    if (savingRef.current) return;
+    if (analysisRef.current) {
+      analysisRef.current.abort(); analysisRef.current = null;
+      setIsAnalyzing(false); setAnalysisError("");
+    }
+    setEditingExisting(false);
+    fileInputRef.current?.click();
   }
 
-  function removeFile() {
+  function removeFile(closeReplacement = false) {
+    analysisRef.current?.abort(); analysisRef.current = null;
     setSelectedFile(null);
     setFileError("");
     setAnalysisError("");
     setExtractedHEP(null);
     setConfirmationError("");
+    setEditingExisting(false);
+    setIsAnalyzing(false);
+    if (closeReplacement) setReplacing(false);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -144,22 +184,27 @@ export default function HEPPage() {
 
     const controller = new AbortController();
     analysisRef.current = controller;
-    const timeout = window.setTimeout(() => controller.abort(), 60000);
+    const timeout = window.setTimeout(() => controller.abort(), 125000);
     setIsAnalyzing(true);
+    setStage("Reading your plan");
     setAnalysisError("");
     setExtractedHEP(null);
     setConfirmationError("");
 
     try {
+      await selectedFile.arrayBuffer();
+      controller.signal.throwIfAborted();
       const formData = new FormData();
       formData.append("file", selectedFile);
 
+      setStage("Finding exercises");
       const response = await fetch("/api/hep/analyze", {
         method: "POST",
         body: formData,
         signal: controller.signal,
       });
 
+      setStage("Preparing your review");
       const data: AnalyzeResponse = await response.json().catch(() => ({ error: "The document reader is unavailable. Try again in a moment." }));
       if (analysisRef.current !== controller) return;
 
@@ -208,18 +253,19 @@ export default function HEPPage() {
         {savedPlan && <>
           <HEPSchedule plan={savedPlan} />
           <section className="rv-glass mb-10 flex flex-col justify-between gap-4 rounded-[24px] p-6 sm:flex-row sm:items-center">
-            <div><h2 className="font-display text-2xl font-bold">Back from a visit with an updated plan?</h2><p className="mt-1 text-[16px] opacity-85">Compare your new HEP with {savedPlan.sourceFileName}. Your current plan stays active until you confirm.</p></div>
-            <button onClick={chooseFile} disabled={isAnalyzing || isSaving} className="rv-btn rv-btn-primary shrink-0">Upload updated plan</button>
+            <div><h2 className="font-display text-2xl font-bold">Back from a visit with an updated plan?</h2><p className="mt-1 text-[16px] opacity-85">Edit the exercises already read from {savedPlan.sourceFileName}, or upload a new therapist document. Your current plan stays active until you save or confirm.</p></div>
+            <div className="flex shrink-0 flex-wrap gap-3"><button className="rv-btn rv-btn-ghost" onClick={editExistingPlan}>Edit exercises</button><button className="rv-btn rv-btn-primary" onClick={() => { removeFile(); showReplacementUpload(); }}>Upload Updated HEP</button></div>
           </section>
         </>}
 
+        {(!savedPlan || replacing) && <>
         <section className="max-w-3xl pt-4">
           <p className="rv-eyebrow">My HEP</p>
           <h1 className="mt-1 font-display text-[clamp(44px,6vw,80px)] font-extrabold leading-[.93] tracking-tight">
             {savedPlan ? "Your plan, updated" : "Upload your plan"}
           </h1>
           <p className="mt-4 max-w-[46ch] text-[19px] leading-snug opacity-90">
-            The home exercise sheet your physical therapist gave you, as a PDF or a photo. You check everything RehabVerse reads before any of it is used.
+            Upload your HEP, then select and review your assigned exercises.
           </p>
         </section>
 
@@ -240,9 +286,7 @@ export default function HEPPage() {
                 </h2>
 
                 <p className="mx-auto mt-2 max-w-lg text-[16px] leading-snug opacity-80">
-                  Add the PDF or image you received from your physical
-                  therapist. You&apos;ll review everything RehabVerse reads
-                  before anything is added to your plan.
+                  Choose the PDF or photo from your care team.
                 </p>
 
                 <input
@@ -293,16 +337,14 @@ export default function HEPPage() {
                 </div>
 
                 <p className="mx-auto mt-4 max-w-lg text-[16px] leading-snug opacity-80">
-                  RehabVerse will extract the exercise information in this
-                  document. You&apos;ll review the results before the plan is
-                  used.
+                  Ready to read. Your selection is confirmed only after review.
                 </p>
 
                 <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
                   <button
                     type="button"
                     onClick={chooseFile}
-                    disabled={isAnalyzing || isSaving}
+                    disabled={isSaving}
                     className="rv-btn rv-btn-ghost"
                   >
                     Choose Different File
@@ -320,7 +362,7 @@ export default function HEPPage() {
                         Reading your HEP...
                       </span>
                     ) : (
-                      "Analyze HEP →"
+                      analysisError ? "Try again" : "Analyze HEP →"
                     )}
                   </button>
                 </div>
@@ -328,7 +370,7 @@ export default function HEPPage() {
                 {!isAnalyzing && !isSaving && (
                   <button
                     type="button"
-                    onClick={removeFile}
+                    onClick={() => removeFile()}
                     className="rv-link mt-4 text-[14px] opacity-75 hover:opacity-100"
                   >
                     Remove file
@@ -346,7 +388,7 @@ export default function HEPPage() {
               </>
             )}
 
-            {isAnalyzing && <p role="status" className="rv-busy mt-5 text-[16px] leading-snug">Reading your document. This can take up to a minute. You will review the results before your plan changes.</p>}
+            {isAnalyzing && <p role="status" className="rv-busy mt-5 text-[16px] leading-snug">{stage}…</p>}
 
             {fileError && (
               <div className="mx-auto mt-5 max-w-lg rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-3">
@@ -388,12 +430,17 @@ export default function HEPPage() {
           </div>
         </section>
 
-        {extractedHEP && reviewedHEP && selectedFile && <>
+        </>}
+        {extractedHEP && reviewedHEP && (selectedFile || editingExisting) && <>
           <HEPExerciseEditor original={extractedHEP} review={review} onChange={setReview} disabled={isSaving} />
           {!canConfirm && <p className="mx-auto mt-5 max-w-5xl text-[15px] text-[#FFD89A]">Select at least one exercise. Selected entries need a name; supplied counts must be positive whole numbers. Unspecified dosage can stay blank.</p>}
-          {savedPlan ? <PlanUpdateReview currentPlan={savedPlan} extracted={reviewedHEP} sourceFileName={selectedFile.name} onConfirm={confirmHEP} onCancel={removeFile} error={confirmationError} saving={isSaving} storageAvailable={dataStatus === "ready" && canConfirm} /> : <section className="sticky bottom-0 z-10 mx-auto my-8 max-w-5xl rounded-[24px] border-2 border-[#1F2A33] bg-[#EEF2F1] p-5 text-[#1F2A33] shadow-2xl">
-            <p className="text-[15px]">Only your selected, corrected entries will appear in My HEP. Missing dosage stays missing; RehabVerse does not prescribe it.</p>
-            <div className="mt-5 flex flex-wrap gap-3"><button onClick={confirmHEP} disabled={isSaving || dataStatus !== "ready" || !canConfirm} className="rv-btn rv-btn-moss">{isSaving ? "Saving…" : "Confirm my plan"}</button><button onClick={removeFile} disabled={isSaving} className="rv-btn">Choose another file</button></div>
+          {editingExisting && savedPlan ? <section className="sticky bottom-0 z-10 mx-auto my-8 max-w-5xl rounded-[24px] border-2 border-[#1F2A33] bg-[#EEF2F1] p-5 text-[#1F2A33] shadow-2xl">
+            <p className="text-[15px]">Save your selected and corrected exercises. Completed activity remains in Progress.</p>
+            <div className="mt-5 flex flex-wrap gap-3"><button onClick={confirmHEP} disabled={isSaving || dataStatus !== "ready" || !canConfirm} className="rv-btn rv-btn-moss">{isSaving ? "Saving…" : "Save My HEP"}</button><button onClick={() => removeFile(true)} disabled={isSaving} className="rv-btn">Cancel</button></div>
+            {confirmationError && <p role="alert" className="mt-3 text-[#A23B3B]">{confirmationError}</p>}
+          </section> : savedPlan && selectedFile ? (canCompareUpdatedHEP(review) ? <PlanUpdateReview currentPlan={savedPlan} extracted={reviewedHEP} sourceFileName={selectedFile.name} onConfirm={confirmHEP} onCancel={() => removeFile(true)} error={confirmationError} saving={isSaving} storageAvailable={dataStatus === "ready" && canConfirm} /> : <section className="rv-glass mx-auto my-8 max-w-5xl rounded-[24px] p-6"><p className="font-display text-xl font-bold">Select the exercises assigned in your updated plan to compare it with your current plan.</p><button onClick={() => removeFile(true)} className="rv-btn rv-btn-ghost mt-4">Keep my current plan</button></section>) : <section className="sticky bottom-0 z-10 mx-auto my-8 max-w-5xl rounded-[24px] border-2 border-[#1F2A33] bg-[#EEF2F1] p-5 text-[#1F2A33] shadow-2xl">
+            <p className="text-[15px]">Only selected exercises will appear in My Quest. Missing dosage stays blank.</p>
+            <div className="mt-5 flex flex-wrap gap-3"><button onClick={confirmHEP} disabled={isSaving || dataStatus !== "ready" || !canConfirm} className="rv-btn rv-btn-moss">{isSaving ? "Saving…" : "Confirm my plan"}</button><button onClick={() => removeFile()} disabled={isSaving} className="rv-btn">Choose another file</button></div>
             {confirmationError && <p role="alert" className="mt-3 text-[#A23B3B]">{confirmationError}</p>}
           </section>}
         </>}
