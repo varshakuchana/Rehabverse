@@ -1,0 +1,89 @@
+.story-shell { min-height: 100vh; color: #f4f6f2; background: radial-gradient(ellipse at 70% 0, #322949, transparent 55%), #101526; }
+.story-content { max-width: 1400px; margin: auto; padding: 28px clamp(18px, 4vw, 64px); }
+.story-kicker { text-transform: uppercase; letter-spacing: .22em; font-size: .72rem; color: #f2d58a; font-weight: 650; }
+.story-title { margin: 45px 0 30px; }
+.story-title h1 { font-size: clamp(2.8rem, 6.8vw, 6.6rem); font-weight: 800; line-height: .98; letter-spacing: -.055em; max-width: 950px; margin: 16px 0; }
+.story-title > p:not(.story-kicker) { font-size: 1.1rem; color: #d2cddd; max-width: 52ch; }
+.story-title small { display: block; margin-top: 16px; color: #ddcdaa; }
+.story-map { position: relative; isolation: isolate; height: clamp(490px, 55vw, 680px); border: 1px solid #b7acd438; border-radius: 32px; overflow: hidden; background: #181c32; }
+.story-map > .rv-island, .story-world > .rv-island { position: absolute; inset: 0; }
+.story-map .rv-island-fallback, .story-world .rv-island-fallback { height: 100%; }
+.story-fallback { width: 100%; height: 100%; min-height: 260px; object-fit: cover; }
+.story-map-path { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.story-map-locations { position: absolute; inset: 0; list-style: none; padding: 0; margin: 0; }
+.story-location { position: absolute; width: 210px; transform: translate(-50%, -50%); text-align: center; }
+.story-location-0 { left: 18%; top: 60%; }
+.story-location-1 { left: 43%; top: 33%; }
+.story-location-2 { left: 76%; top: 49%; }
+.story-location-3 { left: 51%; top: 77%; }
+.story-location button { display: flex; flex-direction: column; align-items: center; width: 100%; padding: 10px; color: #fff8e3; border-radius: 20px; background: #101526e8; border: 1px solid #c4b5fd55; box-shadow: 0 12px 24px #0004; }
+.story-location button[aria-pressed="true"] { border-color: #f2c14e; box-shadow: 0 0 35px #f2c14e25; }
+.story-location button:disabled { color: #c4bdd3; background: #111527e8; }
+.story-location-orb { display: grid; place-items: center; font-size: 2rem; width: 50px; height: 50px; border-radius: 50%; border: 1px solid #dec58c99; background: radial-gradient(#d8b65b33, transparent); }
+.story-location small { font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; margin-top: 5px; }
+.story-map-caption { position: absolute; bottom: 14px; left: 20px; right: 20px; text-align: center; border-radius: 20px; background: #101526dd; padding: 7px; font-size: .8rem; color: #f2d58a; }
+.story-realm-dock { margin: 22px 0; border-radius: 28px; display: flex; align-items: center; justify-content: space-between; gap: 30px; padding: 28px; }
+.story-realm-dock h2 { font-size: 1.8rem; font-weight: 700; margin: 10px 0; }
+.story-realm-dock p { max-width: 70ch; }
+.story-realm-dock > button { flex-shrink: 0; }
+.story-muted { color: #b8b3c7; font-size: .85rem; margin-top: 14px; }
+.story-inventory { margin: 36px 0; }
+.story-inventory h2 { font-size: 1.3rem; font-weight: 650; margin-bottom: 14px; }
+.story-inventory ul { display: flex; flex-wrap: wrap; gap: 14px; list-style: none; padding: 0; }
+.story-inventory li { border: 1px solid #f2c14e30; padding: 12px 18px; border-radius: 18px; color: #decc98; font-size: .9rem; }
+.story-footer { padding: 26px 0; border-top: 1px solid #ffffff15; color: #bab8c7; font-size: .8rem; line-height: 1.8; }
+.story-footer p { max-width: 90ch; margin-bottom: 12px; }
+.story-footer a { color: #f2d58a; text-decoration: underline; }
+.story-text-button { text-decoration: underline; text-underline-offset: 4px; padding: 8px 0; color: #c4bdd3; }
+.story-prologue { position: relative; isolation: isolate; min-height: 570px; display: grid; place-items: center; overflow: hidden; border-radius: 32px; }
+.story-prologue .rv-island-backdrop { opacity: .75; }
+.story-prologue-copy { position: relative; z-index: 1; width: min(640px, 95%); padding: clamp(24px, 5vw, 52px); border-radius: 28px; margin: 24px; }
+.story-prologue-copy h2 { font-size: clamp(2rem, 4vw, 3.5rem); line-height: 1.1; font-weight: 750; margin: 18px 0 26px; }
+.story-prologue-copy > p:not(.story-kicker) { margin: 12px 0; color: #e3ddeb; }
+.story-prologue-copy .story-kicker { margin-top: 20px; }
+.story-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.story-error, .story-reset-notice { background: #4c3544; color: #fff2cc; border: 1px solid #f2c14e55; padding: 20px; border-radius: 18px; margin: 16px; }
+.story-error button { margin-top: 12px; }
+.story-session { background: #101526; }
+.story-session > main { background: radial-gradient(ellipse at 40% 0, #292344, transparent 65%), #101526; }
+.story-world { position: relative; isolation: isolate; height: 360px; overflow: hidden; border-radius: 28px; border: 1px solid #d7bd7955; margin: 20px 0 28px; }
+.story-world.is-active { height: clamp(520px, 68vh, 800px); }
+.story-world-heading { position: absolute; top: 18px; left: 18px; right: 18px; width: fit-content; max-width: calc(100% - 36px); border-radius: 18px; padding: 16px 20px; background: #101526e8; }
+.story-world-heading h2 { font-size: clamp(1.25rem, 3vw, 2rem); font-weight: 750; margin: 6px 0; }
+.story-world-heading > p:last-child { color: #ddd5c5; font-size: .9rem; }
+.story-world-status { position: absolute; bottom: 22px; left: 20px; right: 20px; display: flex; align-items: center; gap: 15px; background: #101526ee; border: 1px solid #ffffff22; padding: 14px 20px; border-radius: 20px; width: fit-content; max-width: calc(100% - 40px); }
+.story-world-status strong { font-size: 1.3rem; color: var(--ability-color); }
+.story-world-status p { font-size: .9rem; }
+.story-world-status small { color: #c4bdd3; font-size: .75rem; }
+.story-ability-symbol { font-size: 2.8rem; color: var(--ability-color); }
+.story-pattern { position: absolute; top: 160px; right: 18px; display: flex; gap: 8px; list-style: none; padding: 0; }
+.story-pattern li { padding: 10px 14px; border: 1px solid #ffffff30; background: #101526ee; border-radius: 15px; font-size: .85rem; }
+.story-pattern li[aria-current="step"] { border: 2px solid #f2c14e; }
+.story-pattern small { display: block; color: #f2d58a; }
+.story-connection { position: absolute; left: 20px; right: 20px; top: 225px; padding: 8px 14px; background: #101526f5; border-radius: 14px; font-size: .85rem; }
+.story-stage-complete { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 18px; padding: 24px; background: #101526bb; text-align: center; }
+.story-stage-complete p { font-size: 1.7rem; font-weight: 650; }
+.story-victory { position: relative; isolation: isolate; display: grid; place-items: center; padding: 48px 20px; }
+.story-victory-world { position: absolute; inset: 0; }
+.story-victory-world > .rv-island { height: 100%; }
+.story-victory-panel { z-index: 1; max-width: 670px; border-radius: 32px; padding: clamp(26px, 5vw, 52px); }
+.story-victory-panel h1 { font-size: clamp(2rem, 5vw, 4rem); line-height: 1; font-weight: 800; letter-spacing: -.04em; margin: 20px 0; }
+.story-victory-panel > p { margin: 18px 0; }
+.story-victory-panel > button { margin: 12px 12px 0 0; }
+.story-reward { color: #f2c14e; font-size: 1.5rem; }
+@media (max-width: 640px) {
+  .story-location { width: 150px; }
+  .story-location-0 { left: 24%; top: 60%; }
+  .story-location-1 { left: 30%; top: 24%; }
+  .story-location-2 { left: 76%; top: 38%; }
+  .story-location-3 { left: 73%; top: 76%; }
+  .story-location strong { font-size: .85rem; }
+  .story-location-orb { width: 35px; height: 35px; font-size: 1.4rem; }
+  .story-realm-dock { flex-direction: column; align-items: stretch; padding: 22px; }
+  .story-pattern { left: 14px; right: 14px; top: 175px; gap: 4px; }
+  .story-pattern li { flex: 1; font-size: .7rem; padding: 7px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .story-victory-panel { animation: story-arrive .7s ease-out both; }
+  @keyframes story-arrive { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+}

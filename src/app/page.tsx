@@ -45,7 +45,7 @@ export default function Home() {
 
                 <div className="mb-3 flex items-center gap-2">
                   <h2 className="text-2xl font-bold">
-                    Transform My HEP
+                    My HEP
                   </h2>
 
                   <span className="rounded-full bg-indigo-400/15 px-2.5 py-1 text-xs font-semibold text-indigo-200">
@@ -102,6 +102,22 @@ export default function Home() {
                   </span>
                 </div>
               </div>
+            </Link>
+          </div>
+
+          <div className="mt-6 grid w-full max-w-5xl gap-6 md:grid-cols-[2fr_1fr]">
+            <Link href="/story" className="rv-glass group rounded-3xl border border-amber-300/40 p-8 transition hover:border-amber-200">
+              <p className="text-xs uppercase tracking-[.2em] text-amber-200">A new journey awaits</p>
+              <h2 className="mt-3 text-3xl font-bold">Story Mode</h2>
+              <p className="mt-2 text-xl text-amber-100">The Shattered Realms</p>
+              <p className="mt-4 leading-7 text-slate-200">Enter the Shattered Realms and restore a world powered by your movement.</p>
+              <p className="mt-4 text-xs text-slate-300">General movement game — not personalized medical treatment.</p>
+              <p className="mt-6 font-semibold text-amber-200">Begin your journey →</p>
+            </Link>
+            <Link href="/progress" className="rv-glass rounded-3xl p-8 transition hover:border-cyan-200">
+              <h2 className="text-2xl font-bold">Progress</h2>
+              <p className="mt-4 leading-7 text-slate-300">See your HEP and Explore activity history. Story fragments live on the Story world map.</p>
+              <p className="mt-6 font-semibold text-cyan-200">Open your journal →</p>
             </Link>
           </div>
 

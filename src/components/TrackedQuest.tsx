@@ -1,5 +1,6 @@
 "use client";
 
+import type { SessionPresentation, SessionVisualState } from "@/types/sessionPresentation";
 import Link from "next/link";
 import { detectors, landmarkVisible, measureMovement, type TrackedSide } from "@/lib/movementDetectors";
 
@@ -26,14 +27,20 @@ type Landmark = {
   visibility?: number;
 };
 
-export default function TrackedQuest({ definition, onContinue }: { definition: QuestDefinition; onContinue?: () => void }) {
+// A component boundary keeps the live pose ref opaque to React rendering.
+// The world consumes it only in its animation effect, never to render JSX.
+function SessionWorldSlot({ presentation, state }: { presentation: SessionPresentation; state: SessionVisualState }) {
+  return presentation.renderWorld(state);
+}
+
+export default function TrackedQuest({ definition, onContinue, presentation }: { definition: QuestDefinition; onContinue?: () => void; presentation?: SessionPresentation }) {
   const [trackedSide, setTrackedSide] = useState<TrackedSide>(definition.trackedSide ?? "left");
   const [tutorialComplete, setTutorialComplete] = useState(false);
-  if (tutorialComplete) return <MovementQuestSession definition={{ ...definition, trackedSide }} onContinue={onContinue} />;
+  if (tutorialComplete) return <MovementQuestSession definition={{ ...definition, trackedSide }} onContinue={onContinue} presentation={presentation} />;
   return (
     <main id="main-content" tabIndex={-1} className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 px-5 py-8 text-white sm:px-8">
       <div className="mx-auto mb-8 max-w-5xl">
-        <Link href={definition.source === "hep" ? "/quest" : "/explore"} className="text-sm text-slate-400 hover:text-white">← Back to {definition.source === "hep" ? "My Quest" : "Explore"}</Link>
+        <Link onClick={event => { if (presentation) { event.preventDefault(); presentation.onExit(); } }} href={presentation ? "/story" : definition.source === "hep" ? "/quest" : "/explore"} className="text-sm text-slate-400 hover:text-white">← Back to {presentation ? "World Map" : definition.source === "hep" ? "My Quest" : "Explore"}</Link>
       </div>
       {definition.detectorId?.startsWith("shoulder") && <fieldset className="mx-auto mb-6 max-w-5xl rounded-xl border border-white/20 p-5"><legend className="px-2">Which arm will you move?</legend><p className="mb-3 text-sm text-slate-300">Use your selected arm throughout. Follow any side specified in your HEP.</p>{(["left", "right"] as const).map(side => <label key={side} className="mr-6 inline-flex items-center gap-2 capitalize"><input type="radio" name="tracked-side" checked={trackedSide === side} onChange={() => setTrackedSide(side)} />{side}</label>)}</fieldset>}
       <ExerciseInstructor mode="tutorial" exercise={definition.instructor} onReady={() => setTutorialComplete(true)} />
@@ -41,8 +48,10 @@ export default function TrackedQuest({ definition, onContinue }: { definition: Q
   );
 }
 
-function MovementQuestSession({ definition, onContinue }: { definition: QuestDefinition; onContinue?: () => void }) {
+function MovementQuestSession({ definition, onContinue, presentation }: { definition: QuestDefinition; onContinue?: () => void; presentation?: SessionPresentation }) {
   const { target, instructor } = definition;
+  const landmarksRef = useRef<Landmark[] | null>(null);
+  const trackingLossReportedRef = useRef(false);
   const detectorId = definition.detectorId ?? "knee_flexion";
   const detector = detectors[detectorId];
   const sessionIdRef = useRef<string | null>(null);
@@ -145,6 +154,11 @@ function MovementQuestSession({ definition, onContinue }: { definition: QuestDef
   }
 
   function trackingLost() {
+    landmarksRef.current = null;
+    if (isSessionActive() && !trackingLossReportedRef.current) {
+      trackingLossReportedRef.current = true;
+      presentation?.onTrackingLost();
+    }
     reportTrackingLost();
     setBodyDetected(false);
     setMovementAngle(null);
@@ -281,15 +295,20 @@ function MovementQuestSession({ definition, onContinue }: { definition: QuestDef
       setReps(nextReps);
       if (nextReps === target) {
         completeSession();
-        const now = new Date();
-        pendingRecordRef.current = {
-          id: sessionIdRef.current ?? crypto.randomUUID(),
-          exerciseId: definition.exerciseId, exerciseName: instructor.name,
-          completedAt: now.toISOString(), completedLocalDate: localDateKey(now),
-          completedReps: nextReps, targetReps: target, prescribedSets: definition.prescribedSets,
-          status: "complete", completionMethod: "camera-tracked", score: nextReps * 100, source: definition.source, planId: definition.planId,
-        };
-        persistCompletion();
+        if (presentation) {
+          // The host owns story objectives and storage; never save Story to activity history.
+          presentation.onComplete();
+        } else {
+          const now = new Date();
+          pendingRecordRef.current = {
+            id: sessionIdRef.current ?? crypto.randomUUID(),
+            exerciseId: definition.exerciseId, exerciseName: instructor.name,
+            completedAt: now.toISOString(), completedLocalDate: localDateKey(now),
+            completedReps: nextReps, targetReps: target, prescribedSets: definition.prescribedSets,
+            status: "complete", completionMethod: "camera-tracked", score: nextReps * 100, source: definition.source, planId: definition.planId,
+          };
+          persistCompletion();
+        }
         resetMovement();
         setFeedback(`All ${target} movements completed!`);
       } else {
@@ -599,6 +618,7 @@ function MovementQuestSession({ definition, onContinue }: { definition: QuestDef
             result.landmarks[0] as Landmark[];
 
           drawPose(landmarks);
+          landmarksRef.current = landmarks;
 
           const angle =
             measureMovement(detectorId, landmarks, definition.trackedSide ?? null, video.videoWidth / video.videoHeight)?.angle ?? null;
@@ -613,6 +633,7 @@ function MovementQuestSession({ definition, onContinue }: { definition: QuestDef
             not enough for this exercise.
           */
           if (angle !== null) {
+            trackingLossReportedRef.current = false;
             setBodyDetected(true);
 
             processMovementRef.current(angle);
@@ -666,20 +687,21 @@ function MovementQuestSession({ definition, onContinue }: { definition: QuestDef
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <Link
-            href={definition.source === "hep" ? "/quest" : "/explore"}
+            onClick={event => { if (presentation) { event.preventDefault(); presentation.onExit(); } }}
+            href={presentation ? "/story" : definition.source === "hep" ? "/quest" : "/explore"}
             className="text-sm text-slate-400 transition hover:text-white"
           >
-            ← Back to {definition.source === "hep" ? "My Quest" : "Explore"}
+            ← Back to {presentation ? "World Map" : definition.source === "hep" ? "My Quest" : "Explore"}
           </Link>
 
           <div className="rounded-full border border-indigo-400/30 bg-indigo-400/10 px-4 py-2 text-sm text-indigo-200">
-            {definition.source === "hep" ? "My HEP" : "Explore"} · Interactive
+            {presentation ? "Story Mode" : definition.source === "hep" ? "My HEP" : "Explore"} · Interactive
           </div>
         </div>
 
         <div className="mb-8">
           <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-indigo-400">
-            RehabVerse Session
+            {presentation ? "The Shattered Realms · Motion ability" : "RehabVerse Session"}
           </p>
 
           <h1 className="text-3xl font-bold sm:text-4xl">
@@ -691,6 +713,8 @@ function MovementQuestSession({ definition, onContinue }: { definition: QuestDef
             {detector.cameraRequirements}
           </p>
         </div>
+
+        {presentation && <SessionWorldSlot presentation={presentation} state={{ sessionState, reps, target, movementPhase, bodyDetected, landmarks: landmarksRef }} />}
 
         <ExerciseInstructor
           mode="session"
@@ -726,7 +750,7 @@ function MovementQuestSession({ definition, onContinue }: { definition: QuestDef
                 Start
               </button>
             )}
-            {sessionState === "complete" && (
+            {!presentation && sessionState === "complete" && (
               <button onClick={playAgain} className="rounded-xl bg-indigo-500 px-6 py-3 font-semibold hover:bg-indigo-400">
                 Play Again
               </button>
@@ -751,7 +775,7 @@ function MovementQuestSession({ definition, onContinue }: { definition: QuestDef
           )}
         </section>
 
-        {sessionState === "complete" && (
+        {!presentation && sessionState === "complete" && (
           <div className="mb-6 rounded-xl border border-cyan-300/20 bg-cyan-300/5 p-4">
             <p role="status" className="text-sm text-slate-200">{saveMessage}</p>
             {saveFailed && <button onClick={persistCompletion} className="mt-3 rounded-lg bg-indigo-500 px-4 py-2">Retry saving</button>}
@@ -760,14 +784,14 @@ function MovementQuestSession({ definition, onContinue }: { definition: QuestDef
           </div>
         )}
 
-        <RehabWorldGame
+        {!presentation && <RehabWorldGame
           sessionState={sessionState}
           completedReps={reps}
           targetReps={target}
           movementProgress={movementPhase}
-        />
+        />}
 
-        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <div className={`grid gap-6 ${presentation && sessionState === "active" ? "mx-auto max-w-xl" : "lg:grid-cols-[2fr_1fr]"}`}>
           <section className="overflow-hidden rounded-2xl border border-white/10 bg-black/30">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
               <div>
@@ -916,7 +940,8 @@ function MovementQuestSession({ definition, onContinue }: { definition: QuestDef
             )}
           </section>
 
-          <aside className="space-y-5">
+          {presentation && <p className="text-sm leading-6 text-amber-100/80">{instructor.safetyMessage}</p>}
+          {!presentation && <aside className="space-y-5">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
               <p className="text-sm text-slate-400">
                 Movement Status
@@ -998,7 +1023,7 @@ function MovementQuestSession({ definition, onContinue }: { definition: QuestDef
                 {instructor.safetyMessage}
               </p>
             </div>
-          </aside>
+          </aside>}
         </div>
       </div>
     </main>

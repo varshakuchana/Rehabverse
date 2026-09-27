@@ -56,7 +56,7 @@ export function useNovaVoice(message: InstructorMessage | null, allowed = false)
         blob = await response.blob();
         if (controller.signal.aborted) return;
         if (!blob.size || !blob.type.startsWith("audio/")) throw new Error("Nova voice returned no playable audio.");
-        // Only the five built-in messages can enter this component-local cache.
+        // Only allowlisted authored messages can enter this component-local cache.
         // Retrying playback can then call play() directly from a user click.
         audioCacheRef.current.set(text, blob);
       }

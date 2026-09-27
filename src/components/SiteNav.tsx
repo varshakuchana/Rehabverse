@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 /* Small top navigation shared by the island pages. */
-export default function SiteNav({ current }: { current?: "home" | "quest" | "hep" | "explore" | "progress" }) {
+export default function SiteNav({ current }: { current?: "home" | "quest" | "hep" | "explore" | "progress" | "story" }) {
   const link = (href: string, label: string, key: typeof current) => (
     <Link
       href={href}
@@ -18,6 +18,7 @@ export default function SiteNav({ current }: { current?: "home" | "quest" | "hep
         {link("/quest", "My Quest", "quest")}
         {link("/hep", "My HEP", "hep")}
         {link("/explore", "Explore", "explore")}
+        {link("/story", "Story Mode", "story")}
         {link("/progress", "Progress", "progress")}
       </div>
     </nav>

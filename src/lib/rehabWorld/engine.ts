@@ -85,6 +85,15 @@ export class RehabWorldEngine {
   private raf = 0;
   private disposed = false;
   private paused = false;
+  private storyAbility: "lumen-rise" | "aether-wing" | "terra-pulse" | null = null;
+  private storyScene = "";
+  private storyCelebrated = false;
+  private storyRestoration = 0;
+  private storyFinale = false;
+  private storyShards: THREE.Mesh[] = [];
+  private storyCrystals: { mesh: THREE.Mesh; material: THREE.MeshStandardMaterial; glow: THREE.Sprite }[] = [];
+  private storyGate: THREE.Mesh | null = null;
+  private waves: { mesh: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>; age: number }[] = [];
   private reduceMotion: boolean;
   private seed = 7;
 
@@ -278,6 +287,7 @@ export class RehabWorldEngine {
 
   /** 0..1 restoration of a zone, animated. */
   setZoneProgress(i: number, p: number) {
+    if (this.storyAbility && i === this.activeZone) this.storyRestoration = clamp01(p);
     const z = this.zones[((i % this.zones.length) + this.zones.length) % this.zones.length];
     const n = Math.floor(clamp01(p) * z.items.length + 1e-6);
     const t = this.timer.getElapsed();
@@ -295,6 +305,7 @@ export class RehabWorldEngine {
   /** Energy leaves the core, flies to the next unrestored piece, and restores it on arrival. */
   releaseEnergy(targetProgress: number, onArrive?: () => void) {
     const now = this.timer.getElapsed();
+    if (this.storyAbility) this.motionWave();
     if (this.experience === "lanterns") {
       const l = this.skyLanterns.find((x) => !x.released);
       if (l) {
@@ -322,7 +333,14 @@ export class RehabWorldEngine {
     sprite.material.opacity = 1;
     sprite.scale.set(1.3, 1.3, 1);
     this.world.add(sprite);
-    const from = this.core.position.clone();
+    const from = this.storyAbility ? this.zones[this.activeZone].figure.clone() : this.core.position.clone();
+    if (this.storyAbility) from.y += this.storyAbility === "terra-pulse" ? .1 : 1.7;
+    // Use the already-rendered wrist position solely as the visual effect origin.
+    // It never changes whether the shared movement engine recognized an action.
+    if (this.storyAbility && this.storyAbility !== "terra-pulse" && this.landmarks && performance.now() - this.landmarksAt < 700) {
+      const wrist = [15, 16].map(index => this.figJoints[POSE_JOINTS.indexOf(index)]).find(joint => joint?.visible);
+      if (wrist) from.copy(this.world.worldToLocal(wrist.getWorldPosition(new THREE.Vector3())));
+    }
     this.comets.push({
       sprite,
       from,
@@ -449,6 +467,106 @@ export class RehabWorldEngine {
     }
   }
 
+  /** Story uses the same island, camera and particle pool. No recognition lives here. */
+  setStoryAbility(ability: "lumen-rise" | "aether-wing" | "terra-pulse", zone: number, finale: boolean) {
+    const key = `${ability}:${zone}:${finale}`;
+    if (this.storyScene === key) return;
+    this.storyScene = key;
+    this.storyAbility = ability;
+    this.storyFinale = finale;
+    if (finale && !this.storyShards.length) {
+      for (let i = 0; i < 3; i++) {
+        const shard = new THREE.Mesh(new THREE.OctahedronGeometry(.3, 0), new THREE.MeshStandardMaterial({ color: ["#F2C14E", "#B69CFF", "#91D5A0"][i], emissive: ["#554211", "#302151", "#173b26"][i], roughness: .25, flatShading: true }));
+        this.storyShards.push(shard);
+        this.core.add(shard);
+      }
+    }
+    this.accent.set(ability === "lumen-rise" ? "#F2C14E" : ability === "aether-wing" ? "#B69CFF" : "#91D5A0");
+    this.setActiveZone(zone);
+    if (!finale && !this.storyCrystals.length) this.buildStoryStructures(zone);
+    this.showSessionElements(true);
+    this.core.scale.setScalar(finale ? 2.5 : 1);
+    this.focusZone(zone);
+    this.camGT.copy(this.zones[this.activeZone].figure).lerp(this.zones[this.activeZone].center, .5);
+    if (finale) { this.camGR = 18; this.camGH = 8; }
+    (this.figLines.material as THREE.LineBasicMaterial).color.copy(this.accent);
+    [...this.figJoints, ...this.figBones].forEach(sprite => sprite.material.color.copy(this.accent));
+  }
+
+  private buildStoryStructures(zone: number) {
+    const center = this.zones[this.activeZone].center;
+    const count = zone === 2 ? 5 : zone === 0 ? 2 : 3;
+    for (let i = 0; i < count; i++) {
+      const theta = count === 2 ? i * Math.PI : i * Math.PI * 2 / count;
+      const x = center.x + Math.cos(theta) * (count === 2 ? 1.5 : 2);
+      const z = center.z + Math.sin(theta) * 1.3;
+      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(.3, .45, .75, 6), this.mat("#625d76"));
+      pedestal.position.set(x, .375, z);
+      const material = new THREE.MeshStandardMaterial({ color: "#55506d", emissive: "#000000", flatShading: true, roughness: .3 });
+      const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(.38, 0), material);
+      mesh.scale.y = 1.5;
+      mesh.position.set(x, 1.2, z);
+      const glow = this.glowSprite();
+      glow.position.copy(mesh.position);
+      this.world.add(pedestal, mesh, glow);
+      this.storyCrystals.push({ mesh, material, glow });
+    }
+    if (zone === 0) {
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(3.7, .35, .5), this.mat("#8b7caa"));
+      lintel.position.set(center.x, 3.2, center.z);
+      this.world.add(lintel);
+      for (const side of [-1, 1]) {
+        const pillar = new THREE.Mesh(new THREE.BoxGeometry(.35, 3.2, .5), this.mat("#70667e"));
+        pillar.position.set(center.x + side * 1.7, 1.6, center.z);
+        this.world.add(pillar);
+      }
+      this.storyGate = new THREE.Mesh(new THREE.PlaneGeometry(3.1, 2.8), new THREE.MeshBasicMaterial({ color: "#b69cff", transparent: true, opacity: .55, side: THREE.DoubleSide }));
+      this.storyGate.position.set(center.x, 1.6, center.z);
+      this.world.add(this.storyGate);
+    }
+  }
+
+  private updateStoryStructures(t: number) {
+    const progress = this.storyRestoration;
+    const lit = this.activeZone === 0 ? Math.floor(Math.min(1, progress * 2) * 2) : Math.floor(progress * this.storyCrystals.length + 1e-6);
+    this.storyCrystals.forEach(({ mesh, material, glow }, index) => {
+      const on = index < lit;
+      material.color.set(on ? "#ffe5a0" : "#55506d");
+      material.emissive.set(on ? "#806322" : "#000000");
+      glow.material.opacity = on ? .8 : .08;
+      glow.scale.setScalar(on ? 2.2 : .6);
+      mesh.rotation.y = t * .25;
+    });
+    if (this.storyGate) {
+      this.storyGate.scale.x = Math.max(.001, 1 - Math.max(0, progress - .5) * 2);
+      this.storyGate.visible = progress < .999;
+    }
+  }
+
+  private motionWave() {
+    const mesh = new THREE.Mesh(new THREE.RingGeometry(.8, .9, 48), new THREE.MeshBasicMaterial({ color: this.accent, transparent: true, opacity: .85, side: THREE.DoubleSide, depthWrite: false }));
+    mesh.position.copy(this.zones[this.activeZone].figure);
+    if (this.storyAbility === "terra-pulse") {
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.y = .15;
+    } else mesh.position.y += 1.5;
+    this.world.add(mesh);
+    this.waves.push({ mesh, age: 0 });
+  }
+
+  celebrateStory(finale = true) {
+    if (this.storyCelebrated) return;
+    this.storyCelebrated = true;
+    this.releaseEnergy(1);
+    this.zones.forEach((zone, index) => {
+      if (finale || index === this.activeZone) {
+        this.setZoneProgress(index, 1);
+        this.spark(zone.center, 12);
+      }
+    });
+    if (finale) { this.core.scale.setScalar(3); this.overview(); }
+  }
+
   /** Cancel in-flight visual work before replay; callbacks must not restore old progress. */
   cancelEffects() {
     for (const comet of this.comets) {
@@ -456,6 +574,12 @@ export class RehabWorldEngine {
       comet.sprite.material.dispose();
     }
     this.comets = [];
+    for (const wave of this.waves) {
+      this.world.remove(wave.mesh);
+      wave.mesh.geometry.dispose();
+      wave.mesh.material.dispose();
+    }
+    this.waves = [];
     this.timers = [];
     for (const spark of this.sparks) { spark.life = 0; spark.s.visible = false; }
   }
@@ -853,7 +977,17 @@ export class RehabWorldEngine {
   private updateCore(dt: number, t: number) {
     const rise = this.energyTarget > this.energy ? 6 : 2.5;
     this.energy += (this.energyTarget - this.energy) * (1 - Math.exp(-dt * rise));
-    const e = this.energy;
+    const e = this.storyFinale ? Math.max(this.energy, this.storyRestoration) : this.energy;
+    if (this.storyFinale) {
+      this.coreMesh.visible = this.storyRestoration >= .99;
+      this.storyShards.forEach((shard, i) => {
+        const angle = i * Math.PI * 2 / 3 + t * .15;
+        const radius = .15 + (1 - this.storyRestoration) * .9;
+        shard.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, 0);
+        shard.rotation.y = t * .3 + i;
+        shard.visible = this.storyRestoration < .99;
+      });
+    }
     const base = this.zones[this.activeZone].core;
     this.core.position.y = base.y + (this.reduceMotion ? 0 : Math.sin(t * 1.4) * 0.12) + e * 0.35;
     this.coreMesh.rotation.y += dt * (0.4 + e * 5);
@@ -917,6 +1051,17 @@ export class RehabWorldEngine {
         c.onArrive();
       }
     }
+    for (let i = this.waves.length - 1; i >= 0; i--) {
+      const wave = this.waves[i];
+      wave.age += dt;
+      wave.mesh.scale.setScalar(1 + wave.age * 5);
+      if (this.storyAbility === "lumen-rise") wave.mesh.position.y += dt * 2;
+      if (this.storyAbility === "aether-wing") wave.mesh.scale.x *= 1.8;
+      wave.mesh.material.opacity = Math.max(0, 1 - wave.age / 1.3);
+      if (wave.age >= 1.3) {
+        this.world.remove(wave.mesh); wave.mesh.geometry.dispose(); wave.mesh.material.dispose(); this.waves.splice(i, 1);
+      }
+    }
     for (const p of this.sparks) {
       if (p.life <= 0) continue;
       p.life -= dt * 0.75;
@@ -931,6 +1076,7 @@ export class RehabWorldEngine {
       c.g.position.set(Math.cos(c.a) * c.r + 3, c.y, Math.sin(c.a) * c.r);
     }
 
+    if (this.storyAbility) this.updateStoryStructures(t);
     this.updateCore(dt, t);
     this.updateSkyLanterns(dt, t);
     this.updateWind(dt);

@@ -18,7 +18,7 @@ let applied = 0;
 Object.assign(engine, {
   timer: { getElapsed: () => 0 }, experience: 'bridge', activeZone: 0,
   zones: [{ items: [{ pos: new THREE.Vector3() }] }],
-  world: new THREE.Group(), core: new THREE.Group(), comets: [], timers: [], sparks: [],
+  world: new THREE.Group(), core: new THREE.Group(), comets: [], timers: [], sparks: [], waves: [],
   glowSprite: () => new THREE.Sprite(new THREE.SpriteMaterial()),
   spark: () => {}, setZoneProgress: () => { applied++; },
 });
@@ -33,7 +33,15 @@ for (const comet of engine.comets) comet.sprite.material.addEventListener('dispo
 engine.timers.push({ at: 1, fn: () => { throw Error('stale completion'); } });
 const spark = new THREE.Sprite();
 engine.sparks.push({ s: spark, life: 1 });
+let waveDisposals = 0;
+const wave = new THREE.Mesh(new THREE.RingGeometry(.8, .9, 8), new THREE.MeshBasicMaterial());
+wave.geometry.addEventListener('dispose', () => { waveDisposals++; });
+wave.material.addEventListener('dispose', () => { waveDisposals++; });
+engine.world.add(wave);
+engine.waves.push({ mesh: wave, age: 0 });
 engine.cancelEffects();
+assert.equal(waveDisposals, 2);
+assert.equal(engine.waves.length, 0);
 assert.equal(disposed, 2);
 assert.equal(engine.comets.length, 0);
 assert.equal(engine.timers.length, 0);
@@ -45,3 +53,4 @@ assert.equal(disposed, 2);
 console.log('✓ Delayed effects cannot rewind authoritative restoration');
 console.log('✓ Replay cancels and disposes pending effects and callbacks');
 console.log('✓ Repeated visual cleanup is safe');
+console.log('✓ Story energy-wave geometry and materials are disposed on cleanup');

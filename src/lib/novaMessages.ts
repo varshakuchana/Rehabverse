@@ -1,3 +1,4 @@
+import { storyLines } from "@/data/storyLines";
 // The same deterministic text is rendered by Nova and voiced by ElevenLabs.
 // No uploaded HEP content or exercise names belong in this speech catalog.
 export const novaMessages = {
@@ -9,5 +10,5 @@ export const novaMessages = {
 } as const;
 export const MAX_NOVA_TEXT_LENGTH = 300;
 export function isSpeakableNovaText(text: string) {
-  return (Object.values(novaMessages) as string[]).includes(text);
+  return ([...Object.values(novaMessages), ...Object.values(storyLines)] as string[]).includes(text);
 }
