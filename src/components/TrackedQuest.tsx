@@ -184,7 +184,7 @@ function MovementQuestSession({ definition, onContinue, presentation }: { defini
     },
   });
 
-  useNovaContext({ mode: definition.source === "hep" ? "HEP" : "Explore", exercise: instructor.name, instructions: instructor.instructions.join("\n"), target, sessionState, completed: reps, cameraEnabled: cameraActive, trackingReady: cameraActive && bodyDetected && movementAngle !== null, missingLandmarks: detector.cameraRequirements }, playAgain);
+  useNovaContext({ mode: definition.source === "hep" ? "HEP" : "Explore", exercise: instructor.name, instructions: instructor.instructions.join("\n"), target, sessionState, completed: reps, cameraEnabled: cameraActive, trackingReady: cameraActive && bodyDetected && movementAngle !== null, missingLandmarks: detector.cameraRequirements }, playAgain, startSession);
 
   function playAgain() {
     sessionIdRef.current = null;

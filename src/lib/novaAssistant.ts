@@ -3,7 +3,7 @@ export type NovaContext = {
   target?: number; completed?: number; sessionState?: string; trackingReady?: boolean;
   cameraEnabled?: boolean; missingLandmarks?: string; sourceName?: string; summary?: string;
 };
-export type NovaAnswer = { text: string; href?: string; action?: "reset" };
+export type NovaAnswer = { text: string; href?: string; action?: "reset" | "start" };
 export const MEDICAL_ANSWER = "I can help you follow or understand an existing care plan, but I can't choose treatment exercises for pain or change your dosage. If you already have a Home Exercise Program, I can help turn it into a quest.";
 export function medicalQuestion(text: string) {
   return /\b(pain\w*|hurts?|injur\w*|diagnos\w*|treat\w*|heal\w*|prescrib\w*|swelling|numb\w*|surger\w*|arthritis|sciatica|torn|fractur\w*|sprain\w*|stroke|acl|meniscus|tingl\w*|post[ -]?op|recover\w*|sore|aching)\b/i.test(text) || /(?:change|increase|decrease|more|fewer).*(?:dose|reps|repetitions)|push.*(?:harder|farther)/i.test(text);
@@ -23,8 +23,12 @@ export function deterministicNova(question: string, context: NovaContext): NovaA
   const routes = [["home", "/"], ["my hep|hep", "/hep"], ["my quest|quest", "/quest"], ["explore", "/explore"], ["story(?: mode)?", "/story"], ["progress", "/progress"]];
   for (const [name, href] of routes) {
     const command = `(?:(?:take|bring) me(?: to)?|go(?: to)?|open|show(?: me)?)`;
-    const requested = new RegExp(`^(?:please )?(?:${command}(?: the)? (${name})(?: page)?|(?:the )?(${name}) page)(?: please)?$`).test(q);
+    const requested = new RegExp(`^(?:please )?(?:${command} (?:the )?(${name})(?: page)?|(?:the )?(${name}) page)(?: please)?$`).test(q);
     if (requested) return { text: `Opening ${href === "/" ? "Home" : href.slice(1)}.`, href };
+  }
+  if (/^(?:please )?(?:start|begin)(?: (?:the )?(?:exercise|session))?(?: please)?$/.test(q)
+    && /^\/session\/[^/]+(?:\/|$)/.test(context.route) && context.sessionState) {
+    return { text: "Starting your session.", action: "start" };
   }
   if (medicalQuestion(q)) return { text: MEDICAL_ANSWER, href: undefined };
   const asksForInstructions = /\b(?:how (?:do|should|can) i do|how to do|explain(?: to me| me)?|instructions? for|show me how)\b/.test(q);

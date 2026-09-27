@@ -115,6 +115,7 @@ function NovaPanel({ route }: { route: string }) {
       if (shouldAutoSpeakNova(voice, answer.text)) void speak(answer, text);
       if (known.href) router.push(known.href);
       if (known.action === "reset" && session) window.dispatchEvent(new Event("nova-reset"));
+      if (known.action === "start") window.dispatchEvent(new Event("nova-session-start"));
       return;
     }
 
@@ -128,6 +129,9 @@ function NovaPanel({ route }: { route: string }) {
       const data = await response.json().catch(() => null);
       if (!response.ok || typeof data?.text !== "string") throw new Error();
       if (!controller.signal.aborted) {
+        if (typeof data.href === "string") router.push(data.href);
+        if (data.action === "start") window.dispatchEvent(new Event("nova-session-start"));
+        if (data.action === "reset" && session) window.dispatchEvent(new Event("nova-reset"));
         const answer = { role: "assistant" as const, text: data.text, voiceToken: data.voiceToken };
         setMessages(old => [...old, answer]);
         if (shouldAutoSpeakNova(voice, answer.text)) void speak(answer, text);

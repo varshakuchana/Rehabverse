@@ -397,11 +397,12 @@ await check("Nova submits Enter, preserves Shift+Enter, sends final speech and a
   assert.equal(novaInteraction.shouldAutoSpeakNova(false, "Answer"), false);
   const source = fs.readFileSync("src/components/GlobalNova.tsx", "utf8");
   assert.match(source, /void ask\(final\)/); assert.match(source, /void speak\(answer, text\)/);
+  assert.match(source, /known\.action === "start"\) window\.dispatchEvent\(new Event\("nova-session-start"\)\)/);
   assert.ok(!source.includes("Speak answer"));
 });
 await check("Nova routes navigation and session questions without model calls", () => {
   const navigation = [
-    [["take me home", "take me to home", "take me to the home page", "go home", "open home", "home page", "show me home", "Please take me to the home page"], "/"],
+    [["take me home", "take me to home", "take me to the home page", "go home", "open home", "home page", "show me home", "Please take me to the home page", "please show me the home page"], "/"],
     [["take me to my HEP", "go to the HEP page", "open my HEP", "my HEP page", "show me my HEP"], "/hep"],
     [["take me to my quest", "go to the quest page", "open my quest", "my quest page", "show me my quest"], "/quest"],
     [["take me to Explore", "go to the Explore page", "open Explore", "Explore page", "show me Explore"], "/explore"],
@@ -417,6 +418,12 @@ await check("Nova routes navigation and session questions without model calls", 
   assert.match(nova.deterministicNova("why can't you see me", context).text, /knee visible/);
   assert.equal(nova.deterministicNova("start over", context).action, "reset");
   assert.equal(nova.deterministicNova("start over", { route: "/" }).action, undefined);
+  for (const command of ["start", "begin", "start exercise", "begin exercise", "start session"]) {
+    assert.equal(nova.deterministicNova(command, { route: "/session/squat", sessionState: "ready" }).action, "start", command);
+    assert.equal(nova.deterministicNova(command, { route: "/", sessionState: "ready" }), null, command);
+  }
+  assert.equal(nova.deterministicNova("begin exercise", { route: "/session/squat" }), null);
+  assert.equal(nova.deterministicNova("how do I do this exercise?", context), null);
   assert.match(nova.deterministicNova("how many do I have left", { route: "/" }).text, /no active/);
   const explained = nova.deterministicNova("explain me how to do head rolls", { route: "/quest", mode: "HEP", exercise: "Head rolls", instructions: "Slowly roll your head from side to side." });
   assert.equal(explained.text, "For Head rolls, your confirmed HEP says: Slowly roll your head from side to side.");
@@ -438,8 +445,12 @@ await check("Nova API bypasses Gemini for medical/state requests and rejects uns
   const request = (question, context = { route: "/", target: 6, completed: 2 }) => new Request("http://localhost/api/nova", { method: "POST", body: JSON.stringify({ question, context }) });
   try {
     const before = calls;
-    for (const [question, href] of [["take me to the home page", "/"], ["please show me my HEP", "/hep"], ["take me to my quest", "/quest"], ["Explore page", "/explore"], ["open Story Mode", "/story"], ["go to Progress", "/progress"]]) {
+    for (const [question, href] of [["take me home", "/"], ["go home", "/"], ["take me to the home page", "/"], ["please show me my HEP", "/hep"], ["take me to my quest", "/quest"], ["Explore page", "/explore"], ["open Story Mode", "/story"], ["go to Progress", "/progress"]]) {
       assert.equal((await (await POST(request(question))).json()).href, href);
+    }
+    const sessionContext = { route: "/session/squat", sessionState: "ready", exercise: "Squat" };
+    for (const question of ["start", "begin exercise"]) {
+      assert.equal((await (await POST(request(question, sessionContext))).json()).action, "start");
     }
     assert.equal((await (await POST(request("My knee hurts"))).json()).text, nova.MEDICAL_ANSWER);
     assert.match((await (await POST(request("how many do I have left"))).json()).text, /4 movements/);
@@ -449,6 +460,10 @@ await check("Nova API bypasses Gemini for medical/state requests and rejects uns
     assert.equal(calls, before);
     modelOutput = { text: "My HEP lets you review your uploaded plan." };
     assert.equal((await POST(request("Explain the upload button"))).status, 200);
+    const normalCalls = calls;
+    modelOutput = { text: "Follow the exercise instructions shown on this page." };
+    assert.equal((await POST(request("how do I do this exercise?", sessionContext))).status, 200);
+    assert.equal(calls, normalCalls + 1);
     modelOutput = { text: "Push harder" };
     assert.equal((await POST(request("Explain the upload button"))).status, 502);
   } finally {
