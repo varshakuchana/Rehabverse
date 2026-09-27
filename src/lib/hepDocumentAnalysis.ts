@@ -74,6 +74,9 @@ function mergeExercise(left: ConfirmedExercise, right: ConfirmedExercise): Confi
     holdSeconds: left.holdSeconds ?? right.holdSeconds ?? null,
     instructions: left.instructions || right.instructions || null,
     notes: left.notes || right.notes || null,
+    movementPattern: compatibleValue(left.movementPattern, right.movementPattern)
+      ? left.movementPattern ?? right.movementPattern ?? null
+      : "guided",
   };
 }
 

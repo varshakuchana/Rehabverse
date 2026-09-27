@@ -496,3 +496,106 @@ export class MovementAttemptEngine {
     };
   }
 }
+
+export type PoseHoldConfig = {
+  durationMs: number;
+  requireReturn: boolean;
+  startDelta: number;
+  maintainDelta: number;
+  returnTolerance: number;
+};
+
+export type PoseHoldResult = {
+  phase: MovementPhase;
+  completedAttempt: boolean;
+  elapsedMs: number;
+  feedback: string;
+};
+
+/**
+ * Uses the same relative-baseline philosophy as MovementAttemptEngine. It
+ * times only a visible pose selected by a reviewed local detector.
+ */
+export class PoseHoldEngine {
+  private readonly config: PoseHoldConfig;
+  private phase: MovementPhase = "waiting";
+  private baseline: number | null = null;
+  private samples: number[] = [];
+  private holdStartedAt: number | null = null;
+  private holdSatisfied = false;
+
+  constructor(config: Pick<PoseHoldConfig, "durationMs"> & Partial<Omit<PoseHoldConfig, "durationMs">>) {
+    this.config = { startDelta: 6, maintainDelta: 4, returnTolerance: 8, requireReturn: false, ...config };
+  }
+
+  process(signal: number, timestamp = performance.now()): PoseHoldResult {
+    if (this.phase === "waiting") {
+      this.samples.push(signal);
+      if (this.samples.length > 12) this.samples.shift();
+      if (this.samples.length >= 8 && Math.max(...this.samples) - Math.min(...this.samples) <= 8) {
+        this.baseline = this.samples.reduce((sum, value) => sum + value, 0) / this.samples.length;
+        this.phase = "ready";
+      }
+      return this.result(false, 0, "Hold your starting position for a moment.");
+    }
+
+    if (this.baseline === null) {
+      this.reset();
+      return this.result(false, 0, "Finding your starting position.");
+    }
+    const delta = this.baseline - signal;
+
+    if (this.phase === "ready") {
+      if (delta >= this.config.startDelta) {
+        this.phase = "moving";
+        this.holdStartedAt = timestamp;
+        return this.result(false, 0, this.holdFeedback(0));
+      }
+      this.baseline = this.baseline * .9 + signal * .1;
+      return this.result(false, 0, "Ready when you are.");
+    }
+
+    if (this.phase === "moving") {
+      if (delta < this.config.maintainDelta) {
+        this.holdStartedAt = null;
+        this.phase = "ready";
+        return this.result(false, 0, "The hold paused. Return to your starting position, then try again.");
+      }
+      const elapsed = Math.max(0, timestamp - (this.holdStartedAt ?? timestamp));
+      if (elapsed >= this.config.durationMs) {
+        this.holdSatisfied = true;
+        this.phase = "returning";
+        if (!this.config.requireReturn) return this.result(true, this.config.durationMs, "Hold completed.");
+        return this.result(false, this.config.durationMs, "Hold completed — return toward your starting position.");
+      }
+      return this.result(false, elapsed, this.holdFeedback(elapsed));
+    }
+
+    if (signal >= this.baseline - this.config.returnTolerance) {
+      const completed = this.config.requireReturn && this.holdSatisfied;
+      this.phase = "ready";
+      this.holdStartedAt = null;
+      this.holdSatisfied = false;
+      this.baseline = signal;
+      return this.result(completed, this.config.durationMs, completed ? "Controlled hold completed." : "Ready for your next hold.");
+    }
+    return this.result(false, this.config.durationMs, this.config.requireReturn ? "Return toward your starting position." : "Hold completed. Return to reset for the next one.");
+  }
+
+  reset() {
+    this.phase = "waiting";
+    this.baseline = null;
+    this.samples = [];
+    this.holdStartedAt = null;
+    this.holdSatisfied = false;
+  }
+
+  private holdFeedback(elapsedMs: number) {
+    const remaining = Math.max(0, Math.ceil((this.config.durationMs - elapsedMs) / 1000));
+    return `Hold detected — ${remaining} ${remaining === 1 ? "second" : "seconds"} remaining.`;
+  }
+
+  private result(completedAttempt: boolean, elapsedMs: number, feedback: string): PoseHoldResult {
+    return { phase: this.phase, completedAttempt, elapsedMs: Math.round(elapsedMs), feedback };
+  }
+}

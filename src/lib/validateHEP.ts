@@ -1,4 +1,5 @@
 import type { ExtractedHEP } from "@/types/schedule";
+import { isMovementPattern } from "./movementPrimitives";
 
 const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const strings = (value: unknown): value is string[] => Array.isArray(value) && value.every(item => typeof item === "string");
@@ -14,5 +15,6 @@ export function isExtractedHEP(value: unknown): value is ExtractedHEP {
     (frequency.specifiedDays == null || strings(frequency.specifiedDays)) &&
     value.exercises.every(item => record(item) && typeof item.name === "string" && item.name.trim().length > 0 &&
       optionalNumber(item.sets) && optionalNumber(item.repetitions) && optionalNumber(item.holdSeconds) &&
-      optionalText(item.instructions) && optionalText(item.notes));
+      optionalText(item.instructions) && optionalText(item.notes) &&
+      (item.movementPattern == null || isMovementPattern(item.movementPattern)));
 }

@@ -55,8 +55,9 @@ export const THEMES: Record<WorldKind, WorldTheme> = {
   },
 };
 
-export function worldFor(definition: Pick<QuestDefinition, "detectorId" | "instructor" | "trackingCapability" | "holdSeconds">): WorldKind {
+export function worldFor(definition: Pick<QuestDefinition, "detectorId" | "instructor" | "trackingCapability" | "holdSeconds" | "trackingMode">): WorldKind {
   if (definition.trackingCapability === "interactive") {
+    if (definition.trackingMode === "pose_hold") return "cairn";
     return definition.detectorId?.startsWith("shoulder") ? "flock" : "well";
   }
   if (definition.holdSeconds || /balance|single[ -]leg|one[ -]leg|stance/i.test(definition.instructor.name)) return "cairn";
@@ -67,6 +68,10 @@ export function demoFor(definition: Pick<QuestDefinition, "detectorId" | "instru
   if (definition.detectorId === "knee_flexion") return "squat";
   if (definition.detectorId === "shoulder_flexion") return "flexion";
   if (definition.detectorId === "shoulder_abduction") return "abduction";
+  if (definition.detectorId === "pelvis_raise") return "bridge";
+  if (definition.detectorId === "torso_raise") return "crunch";
+  if (definition.detectorId === "opposite_arm_leg_extension") return "bird-dog";
+  if (definition.detectorId === "plank_alignment") return "plank";
   if (/ankle/i.test(definition.instructor.name)) return "ankle";
   return null;
 }

@@ -15,6 +15,7 @@ export type ConfirmedExercise = {
   holdSeconds?: number | null;
   instructions?: string | null;
   notes?: string | null;
+  movementPattern?: import("@/lib/movementPrimitives").MovementPattern | null;
 };
 export type ConfirmedPlan = {
   persistenceVersion?: 2;

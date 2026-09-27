@@ -9,6 +9,7 @@ export type QuestDefinition = {
   instructor: InstructorExercise;
   target: number;
   detectorId?: import("@/lib/movementDetectors").DetectorId;
+  trackingMode?: Exclude<import("@/lib/movementPrimitives").TrackingMode, "guided">;
   trackedSide?: import("@/lib/movementDetectors").TrackedSide;
   holdSeconds?: number;
   planId?: string;

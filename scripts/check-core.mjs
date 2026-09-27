@@ -32,7 +32,7 @@ function load(filename) {
 let passed = 0;
 async function check(name, fn) { await fn(); passed++; console.log(`✓ ${name}`); }
 const detector = load("src/lib/movementDetectors.ts");
-const { MovementAttemptEngine } = load("src/lib/movementEngine.ts");
+const { MovementAttemptEngine, PoseHoldEngine } = load("src/lib/movementEngine.ts");
 const review = load("src/lib/hepReview.ts");
 const comparisons = load("src/lib/compareHEPs.ts");
 const { isExtractedHEP } = load("src/lib/validateHEP.ts");
@@ -85,6 +85,69 @@ await check("Each shoulder detector drives the shared engine for exactly one lif
     for (let i = 0; i < 40; i++) assert.equal(engine.process(180 - (i % 3), time += 100).completedAttempt, false);
   }
 });
+function spinePose(kind) {
+  const points = [];
+  if (kind === "bird-start" || kind === "bird-extended") {
+    points[11] = p(.3, .3); points[13] = kind === "bird-start" ? p(.3, .5) : p(.5, .3); points[15] = kind === "bird-start" ? p(.5, .5) : p(.7, .3);
+    points[24] = p(.6, .4); points[26] = kind === "bird-start" ? p(.6, .6) : p(.7, .5); points[28] = kind === "bird-start" ? p(.8, .6) : p(.8, .6);
+  } else if (kind === "bridge-start" || kind === "bridge-raised") {
+    points[11] = p(.2, .8); points[23] = p(.5, kind === "bridge-start" ? .8 : .6); points[25] = p(.8, .8);
+  } else if (kind === "crunch-start" || kind === "crunch-raised") {
+    points[11] = kind === "crunch-start" ? p(.2, .8) : p(.4, .55); points[23] = p(.5, .8); points[25] = p(.8, .8);
+  } else if (kind === "plank-start" || kind === "plank-raised") {
+    points[11] = kind === "plank-start" ? p(.2, .4) : p(.2, .5);
+    points[23] = kind === "plank-start" ? p(.5, .4) : p(.4, .6);
+    points[25] = kind === "plank-start" ? p(.5, .7) : p(.6, .7);
+    points[27] = kind === "plank-start" ? p(.8, .7) : p(.8, .8);
+  }
+  return points;
+}
+await check("Spine primitives use only their visible landmark chains and produce relative movement signals", () => {
+  for (const [id, start, moved] of [
+    ["pelvis_raise", "bridge-start", "bridge-raised"],
+    ["torso_raise", "crunch-start", "crunch-raised"],
+    ["opposite_arm_leg_extension", "bird-start", "bird-extended"],
+    ["plank_alignment", "plank-start", "plank-raised"],
+  ]) {
+    const startSignal = detector.measureMovement(id, spinePose(start), id === "opposite_arm_leg_extension" ? "left" : null).angle;
+    const movedSignal = detector.measureMovement(id, spinePose(moved), id === "opposite_arm_leg_extension" ? "left" : null).angle;
+    assert.ok(movedSignal < startSignal - 10, `${id} did not produce a deliberate relative change`);
+    const missing = spinePose(moved); missing[detector.detectors[id].landmarks.find(index => missing[index])].visibility = .1;
+    assert.equal(detector.measureMovement(id, missing, id === "opposite_arm_leg_extension" ? "left" : null), null);
+  }
+});
+await check("Instruction-derived spine classifications select only implemented tracking modes", () => {
+  const cases = [
+    [{ name: "Bird Dog", repetitions: 5, holdSeconds: 2, instructions: "Begin on hands and knees. Tighten your abdominal muscles, extend one arm and the opposite leg, hold, then return." }, "opposite_arm_leg_extension", "pose_hold"],
+    [{ name: "Plank", repetitions: 3, holdSeconds: 30, instructions: "Place your forearms on the floor. Tighten your abdominal muscles, lift your hips and knees, and keep your body straight." }, "plank_alignment", "pose_hold"],
+    [{ name: "Unfamiliar title", repetitions: 5, holdSeconds: 15, instructions: "Lie on your back. Tighten your abdominal muscles, lift your pelvis, hold, then slowly return." }, "pelvis_raise", "pose_hold"],
+    [{ name: "Abdominal Crunch", repetitions: 10, instructions: "Lie on your back, tighten your abdominal muscles, and lift your shoulders and upper torso, then return." }, "torso_raise", "dynamic_pose"],
+  ];
+  for (const [exercise, id, mode] of cases) {
+    const tracking = detector.trackingForExercise(exercise);
+    assert.equal(tracking.detectorId, id); assert.equal(tracking.mode, mode);
+    assert.equal(hepCapability(exercise), "interactive");
+  }
+  assert.equal(detector.trackingForExercise({ name: "Abdominal Bracing", holdSeconds: 10, instructions: "Lie down and tighten your abdominal muscles without moving." }).mode, "guided");
+  assert.equal(detector.trackingForExercise({ name: "Knee to Chest", instructions: "Bring one knee toward your chest and return." }).mode, "guided");
+  assert.equal(detector.trackingForExercise({ name: "Mystery", instructions: "Move comfortably and return.", movementPattern: "pelvis_raise" }).mode, "guided");
+});
+await check("Pose holds use confirmed time, reset gently, and optionally require return", () => {
+  let time = 0; const plank = new PoseHoldEngine({ durationMs: 1000 });
+  for (let i = 0; i < 8; i++) plank.process(180, time += 100);
+  assert.equal(plank.process(160, time += 100).completedAttempt, false);
+  assert.equal(plank.process(160, time += 900).completedAttempt, false);
+  assert.equal(plank.process(160, time += 100).completedAttempt, true);
+  plank.reset();
+  for (let i = 0; i < 8; i++) plank.process(180, time += 100);
+  plank.process(160, time += 100); plank.reset();
+  assert.equal(plank.process(180, time += 2000).completedAttempt, false);
+  const bridge = new PoseHoldEngine({ durationMs: 500, requireReturn: true }); time = 0;
+  for (let i = 0; i < 8; i++) bridge.process(180, time += 100);
+  bridge.process(150, time += 100);
+  assert.equal(bridge.process(150, time += 500).completedAttempt, false);
+  assert.equal(bridge.process(179, time += 100).completedAttempt, true);
+});
 await check("Tracking-loss reset discards an incomplete attempt without completing it", () => {
   const engine = new MovementAttemptEngine(); let time = 0;
   for (const angle of [...Array(10).fill(180), 170, 160, 150]) engine.process(angle, time += 100);
@@ -128,6 +191,8 @@ await check("Blank HEP dosage text normalizes to null without inventing numeric 
   assert.equal(review.blankDose(0), null);
   assert.equal(review.blankDose("Start at ____ reps"), null);
   assert.equal(isExtractedHEP(review.normalizeTemplateFields({ ...extracted, exercises: [{ name: "Squat", repetitions: "ten or twenty" }] })), false);
+  assert.equal(isExtractedHEP({ ...extracted, exercises: [{ name: "Bridge", repetitions: 5, movementPattern: "execute_user_code" }] }), false);
+  assert.equal(isExtractedHEP({ ...extracted, exercises: [{ name: "Bridge", repetitions: 5, movementPattern: "pelvis_raise" }] }), true);
 });
 await check("HEP classification and sessions use only confirmed dosage, preserving HEP source", () => {
   assert.equal(hepCapability({ name: "Shoulder flexion", repetitions: 6 }), "interactive");

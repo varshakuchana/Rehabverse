@@ -89,8 +89,36 @@ const FLEX: Demo = {
   b: { head: [48, 16], neck: [48, 31], hip: [48, 63], knee: [49, 86], ankle: [48, 108], toe: [58, 110], elbow: [62, 20], hand: [70, 7] },
 };
 
-export type DemoKind = "squat" | "abduction" | "flexion" | "balance" | "ankle";
-const DEMOS: Record<DemoKind, Demo> = { squat: SQUAT, abduction: ARMS, flexion: FLEX, balance: BALANCE, ankle: ANKLE };
+const BRIDGE: Demo = {
+  period: 4, hold: .25,
+  edges: [["head", "shoulder"], ["shoulder", "hip"], ["hip", "knee"], ["knee", "ankle"]],
+  a: { head: [15, 93], shoulder: [26, 92], hip: [52, 94], knee: [72, 73], ankle: [84, 103] },
+  b: { head: [15, 93], shoulder: [26, 92], hip: [54, 68], knee: [72, 73], ankle: [84, 103] },
+};
+
+const CRUNCH: Demo = {
+  period: 3.6, hold: .16,
+  edges: [["head", "shoulder"], ["shoulder", "hip"], ["hip", "knee"], ["knee", "ankle"]],
+  a: { head: [15, 93], shoulder: [27, 92], hip: [55, 94], knee: [73, 74], ankle: [85, 103] },
+  b: { head: [35, 58], shoulder: [43, 67], hip: [55, 94], knee: [73, 74], ankle: [85, 103] },
+};
+
+const BIRD_DOG: Demo = {
+  period: 4.2, hold: .25,
+  edges: [["head", "neck"], ["neck", "hip"], ["neck", "elbow"], ["elbow", "wrist"], ["hip", "knee"], ["knee", "ankle"]],
+  a: { head: [31, 48], neck: [40, 55], hip: [62, 58], elbow: [43, 77], wrist: [43, 101], knee: [65, 78], ankle: [65, 103] },
+  b: { head: [31, 48], neck: [40, 55], hip: [62, 58], elbow: [27, 53], wrist: [11, 50], knee: [76, 57], ankle: [92, 54] },
+};
+
+const PLANK: Demo = {
+  period: 5, hold: .5,
+  edges: [["head", "shoulder"], ["shoulder", "hip"], ["hip", "knee"], ["knee", "ankle"], ["shoulder", "elbow"], ["elbow", "hand"]],
+  a: { head: [24, 45], shoulder: [32, 53], hip: [57, 76], knee: [70, 101], ankle: [89, 104], elbow: [32, 75], hand: [47, 76] },
+  b: { head: [22, 60], shoulder: [31, 66], hip: [56, 76], knee: [72, 83], ankle: [91, 88], elbow: [31, 82], hand: [47, 82] },
+};
+
+export type DemoKind = "squat" | "abduction" | "flexion" | "balance" | "ankle" | "bridge" | "crunch" | "bird-dog" | "plank";
+const DEMOS: Record<DemoKind, Demo> = { squat: SQUAT, abduction: ARMS, flexion: FLEX, balance: BALANCE, ankle: ANKLE, bridge: BRIDGE, crunch: CRUNCH, "bird-dog": BIRD_DOG, plank: PLANK };
 
 const ease = (u: number) => (u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2);
 

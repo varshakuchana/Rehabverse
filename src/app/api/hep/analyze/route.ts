@@ -8,6 +8,7 @@ import {
   type HEPAnalysisCategory,
 } from "@/lib/hepDocumentAnalysis";
 import type { ExtractedHEP } from "@/types/schedule";
+import { MOVEMENT_PATTERNS } from "@/lib/movementPrimitives";
 export const maxDuration = 120;
 
 export const runtime = "nodejs";
@@ -56,6 +57,12 @@ const hepSchema = {
             nullable: true,
             description:
               "Restrictions, precautions, or other notes explicitly associated with this exercise.",
+          },
+          movementPattern: {
+            type: Type.STRING,
+            enum: [...MOVEMENT_PATTERNS],
+            nullable: true,
+            description: "Classify the confirmed written instructions into exactly one allowlisted movement pattern. Use guided when the visible movement is uncertain or primarily isometric.",
           },
         },
         required: [
@@ -246,6 +253,10 @@ Critical rules:
 10. Blank templates such as "Start at ____ reps" are missing values: return null, never zero or example values. A booklet listing exercises does not establish that all were assigned. Preserve selection instructions (such as "do highlighted exercises") and flag uncertain markings in extractionNotes.
 11. This extraction will be shown to the user for verification before
     it is used by RehabVerse.
+12. movementPattern is only a classification of the extracted instructions.
+    Choose only a value allowed by the response schema. Use guided when the
+    instructions do not clearly describe one supported visible pattern.
+    Never return code, landmark expressions, target angles, or a new exercise.
 
 Carefully inspect the entire uploaded document and return only the
 structured information requested by the response schema.

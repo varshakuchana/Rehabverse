@@ -19,6 +19,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useHandsFreeStart } from "@/hooks/useHandsFreeStart";
 import {
   MovementAttemptEngine,
+  PoseHoldEngine,
   type MovementPhase,
 } from "@/lib/movementEngine";
 
@@ -41,12 +42,13 @@ function SessionWorldSlot({ presentation, state }: { presentation: SessionPresen
 export default function TrackedQuest({ definition, onContinue, presentation }: { definition: QuestDefinition; onContinue?: () => void; presentation?: SessionPresentation }) {
   const [trackedSide, setTrackedSide] = useState<TrackedSide>(definition.trackedSide ?? "left");
   const [tutorialComplete, setTutorialComplete] = useState(Boolean(presentation?.skipIntro));
-  if (tutorialComplete) return <MovementQuestSession definition={{ ...definition, trackedSide }} onContinue={onContinue} presentation={presentation} />;
+  const selectsSide = Boolean(definition.detectorId && detectors[definition.detectorId].selectSide);
+  if (tutorialComplete) return <MovementQuestSession definition={selectsSide ? { ...definition, trackedSide } : definition} onContinue={onContinue} presentation={presentation} />;
   const backHref = presentation ? "/story" : definition.source === "hep" ? "/quest" : "/explore";
   const backLabel = presentation ? "Pause" : definition.source === "hep" ? "My quest" : "Explore";
   const world = presentation ? undefined : worldFor(definition);
   const accent = world ? THEMES[world].accent : "#F2C14E";
-  const armPicker = definition.detectorId && definition.detectorId !== "knee_flexion" ? (
+  const armPicker = selectsSide ? (
           <fieldset className="mt-5 rounded-2xl border border-white/20 p-4">
             <legend className="px-2 font-display font-semibold">Which side will you move?</legend>
             <p className="mb-3 text-[15px] opacity-80">Use this side the whole time. Follow any side your plan specifies.</p>
@@ -121,6 +123,12 @@ function MovementQuestSession({ definition, onContinue, presentation }: { defini
   const movementEngineRef = useRef(
     new MovementAttemptEngine()
   );
+  const holdEngineRef = useRef(
+    new PoseHoldEngine({
+      durationMs: (definition.holdSeconds ?? 0) * 1000,
+      requireReturn: detector.holdRequiresReturn ?? false,
+    })
+  );
 
   const smoothedAngleRef =
     useRef<number | null>(null);
@@ -158,6 +166,7 @@ function MovementQuestSession({ definition, onContinue, presentation }: { defini
 
   function resetMovement() {
     movementEngineRef.current.reset();
+    holdEngineRef.current.reset();
     smoothedAngleRef.current = null;
     setMovementPhase("waiting");
   }
@@ -316,11 +325,9 @@ function MovementQuestSession({ definition, onContinue, presentation }: { defini
       It does not require a universal
       clinical movement target.
     */
-    const result =
-      movementEngineRef.current.process(
-        angle,
-        performance.now()
-      );
+    const result = definition.trackingMode === "pose_hold"
+      ? holdEngineRef.current.process(angle, performance.now())
+      : movementEngineRef.current.process(angle, performance.now());
 
     setMovementPhase(result.phase);
     setFeedback(result.feedback);
@@ -473,6 +480,7 @@ function MovementQuestSession({ definition, onContinue, presentation }: { defini
     }
 
     movementEngineRef.current.reset();
+    holdEngineRef.current.reset();
 
     smoothedAngleRef.current = null;
 
@@ -719,7 +727,7 @@ function MovementQuestSession({ definition, onContinue, presentation }: { defini
         return "READY";
 
       case "moving":
-        return "MOVEMENT DETECTED";
+        return definition.trackingMode === "pose_hold" ? "HOLDING" : "MOVEMENT DETECTED";
 
       case "returning":
         return "RETURNING";
@@ -739,7 +747,7 @@ function MovementQuestSession({ definition, onContinue, presentation }: { defini
   const backHref = presentation ? "/story" : definition.source === "hep" ? "/quest" : "/explore";
   const backLabel = presentation ? "Pause" : definition.source === "hep" ? "My quest" : "Explore";
   const onBack = (event: React.MouseEvent<HTMLAnchorElement>) => { if (presentation) { event.preventDefault(); presentation.onExit(); } };
-  const armNote = detectorId !== "knee_flexion" ? `Tracking your ${definition.trackedSide ?? "selected"} side. ${detector.cameraRequirements}` : undefined;
+  const armNote = detector.selectSide ? `Tracking your ${definition.trackedSide ?? "selected"} side. ${detector.cameraRequirements}` : undefined;
   const verbs = world === "well"
     ? { moving: "Down into the well", returning: "Haul it up" }
     : { moving: "Wings up", returning: "Now let it fly" };
@@ -747,7 +755,7 @@ function MovementQuestSession({ definition, onContinue, presentation }: { defini
   const coach = sessionState === "complete" ? { title: theme.done, hint: `You finished all ${target}. Take a breath.` }
     : sessionState === "countdown" ? { title: "Get ready", hint: "Movements count after GO." }
     : active && !bodyDetected ? { title: "Tracking paused", hint: `Your ${reps} ${reps === 1 ? "movement is" : "movements are"} kept. ${detector.cameraRequirements}` }
-    : active ? { title: movementPhase === "moving" ? verbs.moving : movementPhase === "returning" ? verbs.returning : "Your turn", hint: feedback }
+    : active ? { title: movementPhase === "moving" && definition.trackingMode === "pose_hold" ? "Hold detected" : movementPhase === "moving" ? verbs.moving : movementPhase === "returning" ? verbs.returning : "Your turn", hint: feedback }
     : sessionState === "ready" ? { title: "Ready when you are", hint: 'Say "Start" or "Begin", or press Start.' }
     : cameraActive ? { title: "Step into view", hint: detector.cameraRequirements }
     : modelFailed ? { title: "Tracking didn't load", hint: "Check your connection and retry, or pick a Guided quest." }
