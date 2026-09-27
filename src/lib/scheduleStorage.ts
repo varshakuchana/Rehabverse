@@ -1,3 +1,4 @@
+import { hepCapability } from "./hepQuests";
 import type { ConfirmedPlan, Frequency, SchedulePreference } from "@/types/schedule";
 import { parseStored, readStored, subscribeStorage, writeStored } from "./demoStorage";
 export const PLAN_KEY = "rehabverse-confirmed-hep";
@@ -24,10 +25,7 @@ export function saveConfirmedPlan(plan: ConfirmedPlan) { writeStored(PLAN_KEY, p
 export function getConfirmedPlan() { return decodePlan(readStored(PLAN_KEY, true)); }
 export function exerciseKey(plan: ConfirmedPlan, index: number) { return `${plan.id}:${index}`; }
 export function isPlayableExercise(exercise: ConfirmedPlan["exercises"][number]) {
-  return /squat|sit[ -]to[ -]stand/i.test(exercise.name) &&
-    Number.isInteger(exercise.repetitions) && (exercise.repetitions ?? 0) > 0 &&
-    (exercise.sets == null || (Number.isInteger(exercise.sets) && exercise.sets > 0)) &&
-    !exercise.holdSeconds;
+  return hepCapability(exercise) === "interactive";
 }
 export function frequencyInfo(frequency?: Frequency) {
   const raw = typeof frequency?.rawText === "string" ? frequency.rawText.trim() : "";

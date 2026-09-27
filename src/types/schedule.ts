@@ -25,6 +25,7 @@ export type ConfirmedPlan = {
   generalInstructions?: string[];
   extractionNotes?: string[];
   confirmed: boolean;
+  originalExtraction?: ExtractedHEP;
 };
 
 export type ExtractedHEP = {

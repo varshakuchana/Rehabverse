@@ -94,7 +94,7 @@ export default function Home() {
 
                 <div className="mb-3 flex items-center gap-2">
                   <h2 className="text-2xl font-bold">
-                    Explore RehabVerse
+                    Explore with Nova
                   </h2>
 
                   <span className="rounded-full bg-cyan-400/10 px-2.5 py-1 text-xs font-semibold text-cyan-200">
@@ -103,8 +103,8 @@ export default function Home() {
                 </div>
 
                 <p className="leading-7 text-slate-300">
-                  Try camera-tracked or guided movement quests with Nova.
-                  No exercise plan or upload needed.
+                  No exercise plan? Tell Nova what kind of general movement
+                  experience you want and build a quest from our supported library.
                 </p>
 
                 <div className="mt-8 flex items-center gap-2 font-semibold text-cyan-300">

@@ -8,6 +8,9 @@ export type QuestDefinition = {
   trackingCapability: "interactive" | "guided";
   instructor: InstructorExercise;
   target: number;
+  detectorId?: import("@/lib/movementDetectors").DetectorId;
+  trackedSide?: import("@/lib/movementDetectors").TrackedSide;
+  holdSeconds?: number;
   planId?: string;
   prescribedSets?: number;
 };

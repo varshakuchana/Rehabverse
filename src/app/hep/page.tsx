@@ -4,6 +4,8 @@ import Link from "next/link";
 import { confirmPlanReplacement } from "@/lib/scheduleStorage";
 import { useConfirmedPlan, useLocalDataStatus } from "@/hooks/useProgress";
 import HEPSchedule from "@/components/HEPSchedule";
+import HEPExerciseEditor from "@/components/HEPExerciseEditor";
+import { createHEPReview, selectedHEP, reviewValid, type ReviewExercise } from "@/lib/hepReview";
 import PlanUpdateReview from "@/components/PlanUpdateReview";
 import { isExtractedHEP } from "@/lib/validateHEP";
 import type { ExtractedHEP } from "@/types/schedule";
@@ -36,14 +38,19 @@ export default function HEPPage() {
     null
   );
 
+  const [review, setReview] = useState<ReviewExercise[]>([]);
+  const reviewedHEP = extractedHEP ? selectedHEP(extractedHEP, review) : null;
+  const canConfirm = reviewValid(review);
+
   function confirmHEP() {
-    if (!extractedHEP?.exercises.length || !selectedFile || savingRef.current || dataStatus !== "ready") return;
+    if (!extractedHEP || !reviewedHEP || !canConfirm || !selectedFile || savingRef.current || dataStatus !== "ready") return;
     savingRef.current = true;
     setIsSaving(true);
     setConfirmationError("");
     try {
       confirmPlanReplacement({
-        ...extractedHEP,
+        ...reviewedHEP,
+        originalExtraction: extractedHEP,
         id: crypto.randomUUID(),
         sourceFileName: selectedFile.name,
         uploadedAt: new Date().toISOString(),
@@ -162,6 +169,7 @@ export default function HEPPage() {
       }
 
       setExtractedHEP(data.extractedHEP);
+      setReview(createHEPReview(data.extractedHEP));
 
       window.setTimeout(() => {
         const review = document.getElementById("hep-review");
@@ -442,245 +450,15 @@ export default function HEPPage() {
           </div>
         </section>
 
-        {extractedHEP && selectedFile && savedPlan && (
-          <PlanUpdateReview
-            currentPlan={savedPlan}
-            extracted={extractedHEP}
-            sourceFileName={selectedFile.name}
-            onConfirm={confirmHEP}
-            onCancel={removeFile}
-            error={confirmationError}
-            saving={isSaving}
-            storageAvailable={dataStatus === "ready"}
-          />
-        )}
-
-        {extractedHEP && !savedPlan && (
-          <section
-            id="hep-review"
-            tabIndex={-1}
-            className="mx-auto mt-16 max-w-4xl scroll-mt-8 pb-20"
-          >
-            <div className="mb-8 text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/10 text-2xl">
-                🔎
-              </div>
-
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-300">
-                Review before continuing
-              </p>
-
-              <h2 className="mt-3 text-3xl font-black">
-                Here&apos;s what RehabVerse found
-              </h2>
-
-              <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-                AI document extraction can make mistakes. Compare these
-                details with your original HEP before confirming them.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              {extractedHEP.exercises.length > 0 ? (
-                extractedHEP.exercises.map((exercise, index) => (
-                  <article
-                    key={`${exercise.name}-${index}`}
-                    className="rounded-2xl border border-white/10 bg-white/[0.04] p-6"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 font-bold text-indigo-300">
-                        {index + 1}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-lg font-bold">
-                          {exercise.name}
-                        </h3>
-
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {exercise.sets != null && (
-                            <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300">
-                              {exercise.sets}{" "}
-                              {exercise.sets === 1 ? "set" : "sets"}
-                            </span>
-                          )}
-
-                          {exercise.repetitions != null && (
-                            <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300">
-                              {exercise.repetitions} reps
-                            </span>
-                          )}
-
-                          {exercise.holdSeconds != null && (
-                            <span className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300">
-                              Hold {exercise.holdSeconds} sec
-                            </span>
-                          )}
-
-                          {exercise.sets == null &&
-                            exercise.repetitions == null &&
-                            exercise.holdSeconds == null && (
-                              <span className="rounded-lg border border-amber-400/10 bg-amber-400/5 px-3 py-1.5 text-xs text-amber-200">
-                                Dosage not specified
-                              </span>
-                            )}
-                        </div>
-
-                        {exercise.instructions && (
-                          <div className="mt-5">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                              Instructions
-                            </p>
-
-                            <p className="mt-2 text-sm leading-6 text-slate-300">
-                              {exercise.instructions}
-                            </p>
-                          </div>
-                        )}
-
-                        {exercise.notes && (
-                          <div className="mt-4 rounded-xl border border-amber-400/10 bg-amber-400/5 p-3">
-                            <p className="text-xs font-semibold text-amber-200">
-                              Note
-                            </p>
-
-                            <p className="mt-1 text-sm leading-6 text-slate-400">
-                              {exercise.notes}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </article>
-                ))
-              ) : (
-                <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-6 text-center">
-                  <p className="font-semibold text-amber-200">
-                    No exercises were confidently extracted.
-                  </p>
-
-                  <p className="mt-2 text-sm text-slate-400">
-                    Check the document or try a clearer PDF or image.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {(extractedHEP.frequency.rawText ||
-              extractedHEP.frequency.sessionsPerWeek != null ||
-              (extractedHEP.frequency.specifiedDays &&
-                extractedHEP.frequency.specifiedDays.length > 0)) && (
-              <div className="mt-6 rounded-2xl border border-cyan-400/10 bg-cyan-400/[0.04] p-6">
-                <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">
-                  Plan frequency
-                </p>
-
-                {extractedHEP.frequency.rawText && (
-                  <p className="mt-3 text-sm text-slate-300">
-                    {extractedHEP.frequency.rawText}
-                  </p>
-                )}
-
-                {extractedHEP.frequency.sessionsPerWeek != null && (
-                  <p className="mt-2 text-sm text-slate-400">
-                    Extracted frequency:{" "}
-                    {extractedHEP.frequency.sessionsPerWeek} sessions per
-                    week
-                  </p>
-                )}
-
-                {extractedHEP.frequency.specifiedDays &&
-                  extractedHEP.frequency.specifiedDays.length > 0 && (
-                    <p className="mt-2 text-sm text-slate-400">
-                      Days:{" "}
-                      {extractedHEP.frequency.specifiedDays.join(", ")}
-                    </p>
-                  )}
-              </div>
-            )}
-
-            {extractedHEP.generalInstructions.length > 0 && (
-              <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-                <h3 className="font-bold">General instructions</h3>
-
-                <ul className="mt-4 space-y-2">
-                  {extractedHEP.generalInstructions.map(
-                    (instruction, index) => (
-                      <li
-                        key={index}
-                        className="flex gap-3 text-sm leading-6 text-slate-400"
-                      >
-                        <span className="text-indigo-300">•</span>
-                        <span>{instruction}</span>
-                      </li>
-                    )
-                  )}
-                </ul>
-              </div>
-            )}
-
-            {extractedHEP.extractionNotes.length > 0 && (
-              <div className="mt-6 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-6">
-                <h3 className="font-bold text-amber-200">
-                  Please double-check
-                </h3>
-
-                <ul className="mt-4 space-y-2">
-                  {extractedHEP.extractionNotes.map((note, index) => (
-                    <li
-                      key={index}
-                      className="flex gap-3 text-sm leading-6 text-slate-400"
-                    >
-                      <span className="text-amber-300">!</span>
-                      <span>{note}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="mt-8 rounded-2xl border border-indigo-400/20 bg-indigo-400/[0.06] p-6 text-center">
-              <h3 className="text-lg font-bold">
-                Does this match your HEP?
-              </h3>
-
-              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-400">
-                Compare the extracted information with your original
-                document before continuing.
-              </p>
-
-              <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setExtractedHEP(null);
-                    setConfirmationError("");
-                    chooseFile();
-                  }}
-                  disabled={isSaving}
-                  className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10"
-                >
-                  No, choose another file
-                </button>
-
-                <button
-                  type="button"
-                  onClick={confirmHEP}
-                  disabled={isSaving || dataStatus !== "ready" || extractedHEP.exercises.length === 0}
-                  className="rounded-xl bg-indigo-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-40"
-                >
-                  {isSaving ? "Saving…" : "Yes, Confirm My HEP →"}
-                </button>
-              </div>
-
-              {confirmationError && <p role="alert" className="mt-3 text-sm text-rose-200">{confirmationError}</p>}
-
-              <p className="mt-3 text-xs text-slate-500">
-                Confirm only after comparing the extracted details with your original HEP.
-              </p>
-            </div>
-          </section>
-        )}
+        {extractedHEP && reviewedHEP && selectedFile && <>
+          <HEPExerciseEditor original={extractedHEP} review={review} onChange={setReview} disabled={isSaving} />
+          {!canConfirm && <p className="mx-auto mt-5 max-w-5xl text-sm text-amber-200">Select at least one exercise. Selected entries need a name; supplied counts must be positive whole numbers. Unspecified dosage can stay blank.</p>}
+          {savedPlan ? <PlanUpdateReview currentPlan={savedPlan} extracted={reviewedHEP} sourceFileName={selectedFile.name} onConfirm={confirmHEP} onCancel={removeFile} error={confirmationError} saving={isSaving} storageAvailable={dataStatus === "ready" && canConfirm} /> : <section className="mx-auto my-8 max-w-5xl rounded-2xl border border-indigo-300/20 bg-indigo-400/10 p-6">
+            <p className="text-sm text-slate-300">Only your selected, corrected entries will appear in My HEP. Missing dosage stays missing; RehabVerse does not prescribe it.</p>
+            <div className="mt-5 flex flex-wrap gap-3"><button onClick={confirmHEP} disabled={isSaving || dataStatus !== "ready" || !canConfirm} className="rounded-xl bg-indigo-500 px-6 py-3 font-semibold disabled:opacity-40">{isSaving ? "Saving…" : "Confirm My HEP"}</button><button onClick={removeFile} disabled={isSaving} className="rounded-xl border border-white/20 px-5 py-3">Choose another file</button></div>
+            {confirmationError && <p role="alert" className="mt-3 text-rose-200">{confirmationError}</p>}
+          </section>}
+        </>}
       </div>
     </main>
   );

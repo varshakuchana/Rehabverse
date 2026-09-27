@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useConfirmedPlan, useLocalDataStatus } from "@/hooks/useProgress";
+import { hepCapability } from "@/lib/hepQuests";
 import HEPSchedule from "@/components/HEPSchedule";
 import { isPlayableExercise } from "@/lib/scheduleStorage";
 
@@ -153,7 +154,8 @@ export default function QuestPage() {
 
             <div className="mt-6 space-y-3">
               {plan.exercises.map((exercise, index) => {
-                const isInteractive = isPlayableExercise(exercise);
+                const capability = hepCapability(exercise);
+                const isInteractive = capability === "interactive";
 
                 return (
                   <article
@@ -188,7 +190,7 @@ export default function QuestPage() {
                               </span>
                             ) : (
                               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                                Plan reference
+                                {capability === "guided" ? "Guided · Self-reported" : "Reference only"}
                               </span>
                             )}
                           </div>
@@ -215,12 +217,12 @@ export default function QuestPage() {
                         </div>
                       </div>
 
-                      {isInteractive ? (
+                      {capability !== "reference" ? (
                         <Link
                           href={sessionLink(index)}
                           className="shrink-0 rounded-xl bg-cyan-400 px-5 py-2.5 text-center text-sm font-bold text-slate-950 transition hover:bg-cyan-300"
                         >
-                          Play →
+                          {isInteractive ? "Play with camera →" : "Open Guided Quest →"}
                         </Link>
                       ) : (
                         <span className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs text-slate-500">
@@ -228,6 +230,8 @@ export default function QuestPage() {
                         </span>
                       )}
                     </div>
+                    {capability === "reference" && <p className="mt-4 text-xs leading-5 text-slate-400">This session needs an explicit positive repetition count and, for Guided movements, confirmed instructions. Missing or hold-only dosage stays for reference; no repetitions are inferred.</p>}
+                    {capability === "guided" && <p className="mt-4 text-xs leading-5 text-violet-200">Uses your confirmed HEP dosage. You mark completion; the camera does not verify movements or holds.</p>}
                   </article>
                 );
               })}
@@ -268,7 +272,7 @@ export default function QuestPage() {
               </p>
 
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Your HEP is saved for reference. RehabVerse
+                Guided sessions are available where confirmed repetitions and instructions are present. Other entries stay for reference. RehabVerse
                 currently has interactive tracking for a limited set of
                 movements in this prototype.
               </p>

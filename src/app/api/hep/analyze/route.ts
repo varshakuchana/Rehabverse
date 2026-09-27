@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import { normalizeTemplateFields } from "@/lib/hepReview";
 import { isExtractedHEP } from "@/lib/validateHEP";
 import { NextResponse } from "next/server";
 
@@ -210,7 +211,8 @@ Critical rules:
    extractionNotes instead of guessing.
 8. Do not infer medical restrictions that are not explicitly written.
 9. Keep exercise instructions faithful to the source document.
-10. This extraction will be shown to the user for verification before
+10. Blank templates such as "Start at ____ reps" are missing values: return null, never zero or example values. A booklet listing exercises does not establish that all were assigned. Preserve selection instructions (such as "do highlighted exercises") and flag uncertain markings in extractionNotes.
+11. This extraction will be shown to the user for verification before
     it is used by RehabVerse.
 
 Carefully inspect the entire uploaded document and return only the
@@ -246,7 +248,7 @@ structured information requested by the response schema.
       throw new Error("Gemini returned an empty response.");
     }
 
-    const extractedHEP: unknown = JSON.parse(response.text);
+    const extractedHEP: unknown = normalizeTemplateFields(JSON.parse(response.text));
     if (!isExtractedHEP(extractedHEP)) {
       return NextResponse.json({ error: "The document reader returned incomplete data. Try a clearer PDF or image. Your current plan is unchanged." }, { status: 502 });
     }

@@ -1,5 +1,6 @@
+import { detectors } from "@/lib/movementDetectors";
 import type { Exercise } from "@/types/exercise";
-import { exploreMovementQuest, guidedQuests } from "./exploreQuests";
+import { exploreMovementQuest, guidedQuests, shoulderQuests } from "./exploreQuests";
 
 export const exercises: Exercise[] = [
   {
@@ -11,6 +12,14 @@ export const exercises: Exercise[] = [
     tutorial: { shortInstruction: exploreMovementQuest.instructor.cameraRequirements, steps: [...exploreMovementQuest.instructor.instructions] },
     sessionRoute: "/session/squat", available: true, quest: exploreMovementQuest,
   },
+  ...shoulderQuests.map((quest): Exercise => ({
+    id: quest.exerciseId, name: quest.instructor.name,
+    description: "Move your arm and return to send energy into the garden. Camera tracking recognizes the movement in the instructed view.",
+    category: "Upper Body", trackingCapability: "interactive",
+    tracking: { type: "pose", measurement: quest.detectorId, requiredLandmarks: detectors[quest.detectorId!].landmarks },
+    gameMechanic: "movement-energy", tutorial: { shortInstruction: quest.instructor.cameraRequirements, steps: [...quest.instructor.instructions] },
+    sessionRoute: `/session/squat?exercise=${quest.exerciseId}`, available: true, quest,
+  })),
   ...guidedQuests.map((quest): Exercise => ({
     id: quest.exerciseId, name: quest.instructor.name,
     description: quest.exerciseId === "arm-raise"
