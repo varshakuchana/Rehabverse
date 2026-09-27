@@ -9,6 +9,7 @@ import IslandPresentation from "@/components/IslandPresentation";
 import { canCompareUpdatedHEP, createConfirmedHEPReview, createHEPReview, reviewedExtraction, selectedHEP, selectedReviewIndexes, reviewValid, type ReviewExercise } from "@/lib/hepReview";
 import PlanUpdateReview from "@/components/PlanUpdateReview";
 import { isExtractedHEP } from "@/lib/validateHEP";
+import { beginHEPAnalysis, cancelHEPAnalysis, finishHEPAnalysis } from "@/lib/hepAnalysisLifecycle";
 import type { ExtractedHEP } from "@/types/schedule";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
@@ -26,7 +27,7 @@ export default function HEPPage() {
   const dataStatus = useLocalDataStatus();
   const analysisRef = useRef<AbortController | null>(null);
   const editQueryHandled = useRef(false);
-  useEffect(() => () => { analysisRef.current?.abort(); analysisRef.current = null; }, []);
+  useEffect(() => () => { analysisRef.current = cancelHEPAnalysis(analysisRef.current); }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -49,7 +50,8 @@ export default function HEPPage() {
 
   const editExistingPlan = useCallback(() => {
     if (!savedPlan || savingRef.current) return;
-    analysisRef.current?.abort(); analysisRef.current = null;
+    analysisRef.current = cancelHEPAnalysis(analysisRef.current);
+    setIsAnalyzing(false);
     const editable = createConfirmedHEPReview(savedPlan);
     setSelectedFile(null); setReplacing(false); setEditingExisting(true);
     setFileError(""); setAnalysisError(""); setConfirmationError("");
@@ -146,7 +148,7 @@ export default function HEPPage() {
   function chooseFile() {
     if (savingRef.current) return;
     if (analysisRef.current) {
-      analysisRef.current.abort(); analysisRef.current = null;
+      analysisRef.current = cancelHEPAnalysis(analysisRef.current);
       setIsAnalyzing(false); setAnalysisError("");
     }
     setEditingExisting(false);
@@ -154,7 +156,7 @@ export default function HEPPage() {
   }
 
   function removeFile(closeReplacement = false) {
-    analysisRef.current?.abort(); analysisRef.current = null;
+    analysisRef.current = cancelHEPAnalysis(analysisRef.current);
     setSelectedFile(null);
     setFileError("");
     setAnalysisError("");
@@ -178,11 +180,12 @@ export default function HEPPage() {
   }
 
   async function analyzeHEP() {
-    if (!selectedFile || analysisRef.current || savingRef.current) {
+    if (!selectedFile || savingRef.current) {
       return;
     }
 
-    const controller = new AbortController();
+    const controller = beginHEPAnalysis(analysisRef.current);
+    if (!controller) return;
     analysisRef.current = controller;
     const timeout = window.setTimeout(() => controller.abort(), 125000);
     setIsAnalyzing(true);
@@ -235,8 +238,9 @@ export default function HEPPage() {
       );
     } finally {
       window.clearTimeout(timeout);
-      if (analysisRef.current === controller) {
-        analysisRef.current = null;
+      const remaining = finishHEPAnalysis(analysisRef.current, controller);
+      if (remaining !== analysisRef.current) {
+        analysisRef.current = remaining;
         setIsAnalyzing(false);
       }
     }

@@ -19,9 +19,13 @@ export function safeNovaContext(value: unknown): NovaContext {
   return out;
 }
 export function deterministicNova(question: string, context: NovaContext): NovaAnswer | null {
-  const q = question.toLowerCase().trim().replace(/[?!.,]/g, "");
+  const q = question.toLowerCase().trim().replace(/[?!.,]/g, "").replace(/\s+/g, " ");
   const routes = [["home", "/"], ["my hep|hep", "/hep"], ["my quest|quest", "/quest"], ["explore", "/explore"], ["story(?: mode)?", "/story"], ["progress", "/progress"]];
-  for (const [name, href] of routes) if (new RegExp(`^(?:please )?(?:go(?: to)?|open|show(?: me)?)(?: the)? (${name})(?: please)?$`).test(q)) return { text: `Opening ${href === "/" ? "Home" : href.slice(1)}.`, href };
+  for (const [name, href] of routes) {
+    const command = `(?:(?:take|bring) me(?: to)?|go(?: to)?|open|show(?: me)?)`;
+    const requested = new RegExp(`^(?:please )?(?:${command}(?: the)? (${name})(?: page)?|(?:the )?(${name}) page)(?: please)?$`).test(q);
+    if (requested) return { text: `Opening ${href === "/" ? "Home" : href.slice(1)}.`, href };
+  }
   if (medicalQuestion(q)) return { text: MEDICAL_ANSWER, href: undefined };
   const asksForInstructions = /\b(?:how (?:do|should|can) i do|how to do|explain(?: to me| me)?|instructions? for|show me how)\b/.test(q);
   if (asksForInstructions && context.mode === "HEP" && context.exercise) {

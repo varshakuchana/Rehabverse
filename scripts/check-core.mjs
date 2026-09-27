@@ -335,7 +335,16 @@ await check("Nova submits Enter, preserves Shift+Enter, sends final speech and a
   assert.ok(!source.includes("Speak answer"));
 });
 await check("Nova routes navigation and session questions without model calls", () => {
-  for (const [question, href] of [["go home", "/"], ["open home", "/"], ["open my HEP", "/hep"], ["show my quest", "/quest"], ["open Explore", "/explore"], ["open Story Mode", "/story"], ["show progress", "/progress"]]) assert.equal(nova.deterministicNova(question, { route: "/" }).href, href);
+  const navigation = [
+    [["take me home", "take me to home", "take me to the home page", "go home", "open home", "home page", "show me home", "Please take me to the home page"], "/"],
+    [["take me to my HEP", "go to the HEP page", "open my HEP", "my HEP page", "show me my HEP"], "/hep"],
+    [["take me to my quest", "go to the quest page", "open my quest", "my quest page", "show me my quest"], "/quest"],
+    [["take me to Explore", "go to the Explore page", "open Explore", "Explore page", "show me Explore"], "/explore"],
+    [["take me to Story Mode", "go to the Story page", "open Story Mode", "Story Mode page", "show me Story Mode"], "/story"],
+    [["take me to Progress", "go to the Progress page", "open Progress", "Progress page", "show me Progress"], "/progress"],
+  ];
+  for (const [phrases, href] of navigation) for (const question of phrases) assert.equal(nova.deterministicNova(question, { route: "/" }).href, href, question);
+  for (const question of ["How do I open the home page?", "What is on the Progress page?", "Can you explain Story Mode?"]) assert.equal(nova.deterministicNova(question, { route: "/" }), null, question);
   const context = { route: "/session/squat", exercise: "Squat", target: 6, completed: 2, sessionState: "active", cameraEnabled: true, trackingReady: false, missingLandmarks: "Keep your knee visible." };
   assert.match(nova.deterministicNova("how many do I have left", context).text, /4 movements left/);
   assert.match(nova.deterministicNova("what exercise am I doing", context).text, /Squat/);
@@ -364,6 +373,9 @@ await check("Nova API bypasses Gemini for medical/state requests and rejects uns
   const request = (question, context = { route: "/", target: 6, completed: 2 }) => new Request("http://localhost/api/nova", { method: "POST", body: JSON.stringify({ question, context }) });
   try {
     const before = calls;
+    for (const [question, href] of [["take me to the home page", "/"], ["please show me my HEP", "/hep"], ["take me to my quest", "/quest"], ["Explore page", "/explore"], ["open Story Mode", "/story"], ["go to Progress", "/progress"]]) {
+      assert.equal((await (await POST(request(question))).json()).href, href);
+    }
     assert.equal((await (await POST(request("My knee hurts"))).json()).text, nova.MEDICAL_ANSWER);
     assert.match((await (await POST(request("how many do I have left"))).json()).text, /4 movements/);
     const explained = await (await POST(request("explain me how to do head rolls", { route: "/session/squat", mode: "HEP", exercise: "Head rolls", instructions: "Slowly roll your head from side to side." }))).json();
@@ -480,16 +492,34 @@ await check("Cancelling a sequential PDF analysis stops before another batch beg
   await firstStarted; controller.abort(new DOMException("Cancelled", "AbortError"));
   await assert.rejects(pending); assert.equal(calls, 1);
 });
+await check("A failed, aborted, or successful analysis always releases its page-local lease", () => {
+  const lifecycle = load("src/lib/hepAnalysisLifecycle.ts");
+  let active = lifecycle.beginHEPAnalysis(null);
+  assert.ok(active); assert.equal(lifecycle.beginHEPAnalysis(active), null);
+  const failed = active;
+  active = lifecycle.finishHEPAnalysis(active, failed);
+  assert.equal(active, null);
+  active = lifecycle.beginHEPAnalysis(active);
+  const aborted = active; active = lifecycle.cancelHEPAnalysis(active);
+  assert.equal(aborted.signal.aborted, true); assert.equal(active, null);
+  const replacement = lifecycle.beginHEPAnalysis(active);
+  assert.ok(replacement); active = replacement;
+  assert.equal(lifecycle.finishHEPAnalysis(active, aborted), replacement);
+  active = lifecycle.finishHEPAnalysis(active, replacement);
+  assert.equal(active, null);
+  assert.ok(lifecycle.beginHEPAnalysis(active));
+});
 await check("HEP upload failure keeps the selected file available for retry and replacement cancels work", () => {
   const source = fs.readFileSync("src/app/hep/page.tsx", "utf8");
   const analyzeStart = source.indexOf("async function analyzeHEP");
   const analyze = source.slice(analyzeStart, source.indexOf("\n  return (", analyzeStart));
-  assert.match(analyze, /analysisRef\.current \|\| savingRef\.current/);
+  assert.match(analyze, /beginHEPAnalysis\(analysisRef\.current\)/);
+  assert.match(analyze, /finally[\s\S]*finishHEPAnalysis\(analysisRef\.current, controller\)/);
   assert.match(analyze, /setAnalysisError\(/);
   assert.ok(!analyze.includes("setSelectedFile(null)"));
   assert.match(source, /analysisError \? "Try again" : "Analyze HEP/);
   const choose = source.slice(source.indexOf("function chooseFile"), source.indexOf("function removeFile"));
-  assert.match(choose, /analysisRef\.current\.abort\(\)/);
+  assert.match(choose, /cancelHEPAnalysis\(analysisRef\.current\)/);
 });
 await check("A total PDF analysis failure cannot replace the current HEP", async () => {
   const plans = load("src/lib/scheduleStorage.ts");
